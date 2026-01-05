@@ -2,95 +2,114 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap');
+
+/* ENTALTEK GIRLY PROFESSIONAL - Design System */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Entaltek Girly Palette */
+    --background: 330 100% 98%; /* #FDF2F8 - Cloud White with pink tint */
+    --foreground: 215 28% 17%; /* #1F2937 - Dark gray for readability */
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 215 28% 17%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 215 28% 17%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary - Magenta Berry #D946EF */
+    --primary: 292 84% 61%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary - Plum Deep #4A044E */
+    --secondary: 297 91% 16%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted surfaces */
+    --muted: 330 50% 95%;
+    --muted-foreground: 215 20% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Accent - Rose Quartz #F472B6 */
+    --accent: 330 86% 70%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Destructive */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Border - Dark Raspberry #BE185D */
+    --border: 330 30% 88%;
+    --input: 330 30% 88%;
+    --ring: 292 84% 61%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* Sidebar - Plum Deep theme */
+    --sidebar-background: 297 91% 16%;
+    --sidebar-foreground: 330 100% 95%;
+    --sidebar-primary: 292 84% 61%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 297 80% 25%;
+    --sidebar-accent-foreground: 330 100% 95%;
+    --sidebar-border: 297 70% 25%;
+    --sidebar-ring: 292 84% 61%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    /* Custom Entaltek tokens */
+    --entaltek-magenta: 292 84% 61%;
+    --entaltek-plum: 297 91% 16%;
+    --entaltek-rose: 330 86% 70%;
+    --entaltek-raspberry: 339 82% 42%;
+    --entaltek-cream: 330 100% 98%;
 
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(292 84% 61%), hsl(330 86% 70%));
+    --gradient-sidebar: linear-gradient(180deg, hsl(297 91% 16%), hsl(297 91% 12%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(330 50% 98%));
+    
+    /* Shadows */
+    --shadow-soft: 0 4px 20px -4px hsl(330 86% 70% / 0.15);
+    --shadow-card: 0 2px 12px -2px hsl(297 91% 16% / 0.08);
+    --shadow-button: 0 4px 14px -2px hsl(292 84% 61% / 0.35);
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 297 91% 8%;
+    --foreground: 330 100% 95%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 297 91% 12%;
+    --card-foreground: 330 100% 95%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 297 91% 12%;
+    --popover-foreground: 330 100% 95%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 292 84% 61%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 297 80% 25%;
+    --secondary-foreground: 330 100% 95%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 297 70% 20%;
+    --muted-foreground: 330 50% 70%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 330 86% 70%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --border: 297 70% 20%;
+    --input: 297 70% 20%;
+    --ring: 292 84% 61%;
+
+    --sidebar-background: 297 91% 8%;
+    --sidebar-foreground: 330 100% 95%;
+    --sidebar-primary: 292 84% 61%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 297 80% 20%;
+    --sidebar-accent-foreground: 330 100% 95%;
+    --sidebar-border: 297 70% 15%;
+    --sidebar-ring: 292 84% 61%;
   }
 }
 
@@ -100,6 +119,38 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Quicksand', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Quicksand', sans-serif;
+    font-weight: 600;
+  }
+}
+
+@layer utilities {
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+  
+  .gradient-sidebar {
+    background: var(--gradient-sidebar);
+  }
+  
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+  
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  
+  .shadow-button {
+    box-shadow: var(--shadow-button);
+  }
+
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-sm border border-border/50;
   }
 }
