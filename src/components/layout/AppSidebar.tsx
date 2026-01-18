@@ -2,23 +2,25 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
-  ShoppingCart,
+  Timer,
   Package,
   TrendingUp,
-  Settings,
+  Settings2,
   Menu,
   X,
   Sparkles,
+  Palette,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Nueva Venta", url: "/nueva-venta", icon: ShoppingCart },
-  { title: "Inventario", url: "/inventario", icon: Package },
+  { title: "Servicio en Curso", url: "/servicio", icon: Timer },
+  { title: "Inventario 2.0", url: "/inventario", icon: Package },
+  { title: "Catálogo Diseños", url: "/catalogo", icon: Palette },
   { title: "Finanzas CFO", url: "/finanzas", icon: TrendingUp },
-  { title: "Configuración", url: "/configuracion", icon: Settings },
+  { title: "Configuración", url: "/configuracion", icon: Settings2 },
 ];
 
 export function AppSidebar() {
