@@ -3,7 +3,55 @@
 @tailwind utilities;
 
 @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&display=swap');
+
+/* Sansation Font Family - Entaltek Corporate */
+@font-face {
+  font-family: 'Sansation';
+  src: url('/fonts/Sansation_Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sansation';
+  src: url('/fonts/Sansation_Light_Italic.ttf') format('truetype');
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sansation';
+  src: url('/fonts/Sansation_Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sansation';
+  src: url('/fonts/Sansation_Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sansation';
+  src: url('/fonts/Sansation_Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sansation';
+  src: url('/fonts/Sansation_Bold_Italic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
 
 /* ENTALTEK DESIGN SYSTEM - Dual Theme Support */
 
@@ -142,8 +190,8 @@
     --shadow-card: 0 2px 12px -2px hsl(207 72% 20% / 0.08);
     --shadow-button: 0 4px 14px -2px hsl(197 99% 35% / 0.35);
 
-    /* Font family - Open Sans (similar to Sensation) */
-    --font-family: 'Open Sans', sans-serif;
+    /* Font family - Sansation Corporate */
+    --font-family: 'Sansation', sans-serif;
   }
 
   .dark {
