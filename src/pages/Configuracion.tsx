@@ -12,9 +12,13 @@ import {
   Bell,
   Shield,
   Sparkles,
+  Building2,
 } from "lucide-react";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function Configuracion() {
+  const { theme, toggleTheme } = useTheme();
+
   return (
     <MainLayout>
       <div className="max-w-3xl mx-auto space-y-8">
@@ -70,6 +74,56 @@ export default function Configuracion() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Theme Toggle - NEW */}
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Tema Corporativo Entaltek
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Cambia a los colores oficiales de la empresa (Azul Brillante, Azul Marino, Azul Cielo)
+                </p>
+              </div>
+              <Switch 
+                checked={theme === 'corporate'}
+                onCheckedChange={toggleTheme}
+              />
+            </div>
+            
+            {/* Theme Preview */}
+            <div className="p-4 rounded-xl border border-border bg-muted/30">
+              <p className="text-xs text-muted-foreground mb-3 uppercase tracking-wide font-medium">
+                Vista previa del tema
+              </p>
+              <div className="flex gap-3 flex-wrap">
+                <div className="flex flex-col items-center gap-1">
+                  <div className="w-10 h-10 rounded-lg bg-primary shadow-button" />
+                  <span className="text-xs text-muted-foreground">Primario</span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <div className="w-10 h-10 rounded-lg bg-secondary" />
+                  <span className="text-xs text-muted-foreground">Secundario</span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <div className="w-10 h-10 rounded-lg bg-accent" />
+                  <span className="text-xs text-muted-foreground">Acento</span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <div className="w-10 h-10 rounded-lg bg-muted border border-border" />
+                  <span className="text-xs text-muted-foreground">Muted</span>
+                </div>
+              </div>
+              <p className="text-sm text-foreground mt-3">
+                {theme === 'corporate' 
+                  ? '🏢 Tema Corporativo: Azul Brillante + Azul Marino + Open Sans'
+                  : '💅 Tema Girly: Magenta + Plum + Quicksand'
+                }
+              </p>
+            </div>
+            
+            <Separator />
+            
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Tema Oscuro</Label>
