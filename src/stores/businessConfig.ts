@@ -169,11 +169,17 @@ const defaultSavingsBuckets: SavingsBucket[] = [
   { id: 'emergency', name: 'Emergencias', icon: '🚨', targetPercent: 10, currentAmount: 0 },
 ];
 
-const defaultFixedExpenses: FixedExpense[] = [
-  { id: '1', name: 'Renta', category: 'Local', amount: 8000, budget: 8000 },
-  { id: '2', name: 'Luz', category: 'Servicios', amount: 1200, budget: 1500 },
-  { id: '3', name: 'Software', category: 'Software', amount: 450, budget: 450 },
-  { id: '4', name: 'Publicidad', category: 'Marketing', amount: 2500, budget: 3000 },
+// JSON Semilla from Excel "Materiales Carlitos 1.csv"
+const seedFixedExpenses: FixedExpense[] = [
+  { id: '1', name: 'Renta', category: 'Local', amount: 3000, budget: 3000 },
+  { id: '2', name: 'Luz', category: 'Servicios', amount: 100, budget: 150 },
+  { id: '3', name: 'Agua', category: 'Servicios', amount: 100, budget: 100 },
+  { id: '4', name: 'Internet', category: 'Servicios', amount: 200, budget: 200 },
+  { id: '5', name: 'HBO', category: 'Entretenimiento', amount: 150, budget: 150 },
+  { id: '6', name: 'CapCut', category: 'Software', amount: 330, budget: 330 },
+  { id: '7', name: 'Software Entaltek', category: 'Software', amount: 450, budget: 450 },
+  { id: '8', name: 'Limpieza', category: 'Local', amount: 200, budget: 200 },
+  { id: '9', name: 'Daniela (Ayuda)', category: 'Personal', amount: 1200, budget: 1200 },
 ];
 
 const defaultTeamMembers: TeamMember[] = [
@@ -253,12 +259,13 @@ const defaultInventory: InventoryItem[] = [
   },
 ];
 
+// Services from JSON seed with duration
 const defaultServices: ServiceDefinition[] = [
-  { id: 'pedicure', name: 'Pedicure Spa', basePrice: 450, suggestedPrice: 480, estimatedMinutes: 60, needsLength: false, recipe: [], materialCost: 25 },
-  { id: 'gel', name: 'Gel Semipermanente', basePrice: 350, suggestedPrice: 380, estimatedMinutes: 45, needsLength: false, recipe: [], materialCost: 35 },
-  { id: 'rubber', name: 'Rubber Gel', basePrice: 500, suggestedPrice: 550, estimatedMinutes: 60, needsLength: false, recipe: [], materialCost: 45 },
-  { id: 'softgel', name: 'Soft Gel', basePrice: 650, suggestedPrice: 720, estimatedMinutes: 90, needsLength: true, recipe: [], materialCost: 55 },
-  { id: 'acrylic', name: 'Acrílico', basePrice: 700, suggestedPrice: 780, estimatedMinutes: 120, needsLength: true, recipe: [], materialCost: 65 },
+  { id: 'acrylic', name: 'Acrílico', basePrice: 700, suggestedPrice: 0, estimatedMinutes: 120, needsLength: true, recipe: [], materialCost: 65 },
+  { id: 'gel', name: 'Gel Semipermanente', basePrice: 350, suggestedPrice: 0, estimatedMinutes: 60, needsLength: false, recipe: [], materialCost: 35 },
+  { id: 'rubber', name: 'Rubber Gel', basePrice: 500, suggestedPrice: 0, estimatedMinutes: 90, needsLength: false, recipe: [], materialCost: 45 },
+  { id: 'softgel', name: 'Soft Gel', basePrice: 650, suggestedPrice: 0, estimatedMinutes: 120, needsLength: true, recipe: [], materialCost: 55 },
+  { id: 'pedicure', name: 'Pedicure Spa', basePrice: 450, suggestedPrice: 0, estimatedMinutes: 90, needsLength: false, recipe: [], materialCost: 25 },
 ];
 
 export const useBusinessConfig = create<BusinessConfigState>()(
@@ -270,8 +277,8 @@ export const useBusinessConfig = create<BusinessConfigState>()(
       desiredMonthlySalary: 15000,
       costPerMinute: 15000 / (160 * 60), // ~1.56 per minute
       
-      fixedExpenses: defaultFixedExpenses,
-      totalFixedExpenses: defaultFixedExpenses.reduce((sum, e) => sum + e.amount, 0),
+      fixedExpenses: seedFixedExpenses,
+      totalFixedExpenses: seedFixedExpenses.reduce((sum, e) => sum + e.amount, 0),
       
       savingsBuckets: defaultSavingsBuckets,
       
