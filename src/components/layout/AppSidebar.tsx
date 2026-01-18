@@ -7,13 +7,14 @@ import {
   Settings2,
   Menu,
   X,
-  Sparkles,
   Palette,
   BarChart3,
   MenuSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/hooks/useTheme";
+import logoEntaltek from "@/assets/logo_entaltek.png";
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -28,6 +29,7 @@ const navItems = [
 export function AppSidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const { theme } = useTheme();
 
   return (
     <>
@@ -59,14 +61,20 @@ export function AppSidebar() {
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="flex items-center gap-3 px-6 py-6 border-b border-sidebar-border">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-button">
-              <Sparkles className="h-5 w-5 text-primary-foreground" />
-            </div>
+            {theme === 'corporate' ? (
+              <img src={logoEntaltek} alt="Entaltek" className="h-10 w-10 object-contain" />
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-button">
+                <span className="text-lg">💅</span>
+              </div>
+            )}
             <div>
               <h1 className="text-lg font-bold text-sidebar-foreground tracking-tight">
                 Entaltek
               </h1>
-              <p className="text-xs text-sidebar-foreground/70">Nail Studio</p>
+              <p className="text-xs text-sidebar-foreground/70">
+                {theme === 'corporate' ? 'Business Suite' : 'Nail Studio'}
+              </p>
             </div>
           </div>
 

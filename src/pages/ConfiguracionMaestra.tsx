@@ -23,6 +23,8 @@ import {
   AlertTriangle,
   TrendingUp,
   Sparkles,
+  Palette,
+  Building2,
 } from "lucide-react";
 import {
   Dialog,
@@ -32,9 +34,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useBusinessConfig, FixedExpense, TeamMember } from "@/stores/businessConfig";
+import { useTheme } from "@/hooks/useTheme";
 import { toast } from "@/hooks/use-toast";
 
 export default function ConfiguracionMaestra() {
+  const { theme, toggleTheme } = useTheme();
   const {
     businessName,
     monthlyWorkHours,
@@ -111,6 +115,67 @@ export default function ConfiguracionMaestra() {
             El cerebro de tu negocio - Define tus variables globales
           </p>
         </div>
+
+        {/* Theme Toggle - Corporate */}
+        <Card className="shadow-card animate-fade-in border-primary/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Palette className="h-5 w-5 text-primary" />
+              Tema Visual
+            </CardTitle>
+            <CardDescription>
+              Cambia entre el tema Girly y el tema Corporativo
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Tema Corporativo Entaltek
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Azul Brillante + Azul Marino + Tipografía Sansation
+                </p>
+              </div>
+              <Switch 
+                checked={theme === 'corporate'}
+                onCheckedChange={toggleTheme}
+              />
+            </div>
+            
+            {/* Theme Preview */}
+            <div className="p-4 rounded-xl border border-border bg-muted/30">
+              <p className="text-xs text-muted-foreground mb-3 uppercase tracking-wide font-medium">
+                Vista previa del tema activo
+              </p>
+              <div className="flex gap-3 flex-wrap">
+                <div className="flex flex-col items-center gap-1">
+                  <div className="w-10 h-10 rounded-lg bg-primary shadow-button" />
+                  <span className="text-xs text-muted-foreground">Primario</span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <div className="w-10 h-10 rounded-lg bg-secondary" />
+                  <span className="text-xs text-muted-foreground">Secundario</span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <div className="w-10 h-10 rounded-lg bg-accent" />
+                  <span className="text-xs text-muted-foreground">Acento</span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <div className="w-10 h-10 rounded-lg bg-muted border border-border" />
+                  <span className="text-xs text-muted-foreground">Muted</span>
+                </div>
+              </div>
+              <p className="text-sm text-foreground mt-3 font-medium">
+                {theme === 'corporate' 
+                  ? '🏢 Tema Corporativo: Azul Brillante + Azul Marino + Sansation'
+                  : '💅 Tema Girly: Magenta + Plum + Quicksand'
+                }
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Business Info */}
         <Card className="shadow-card animate-fade-in">
