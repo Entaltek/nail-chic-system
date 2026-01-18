@@ -116,7 +116,7 @@ export default function Configuracion() {
               </div>
               <p className="text-sm text-foreground mt-3">
                 {theme === 'corporate' 
-                  ? '🏢 Tema Corporativo: Azul Brillante + Azul Marino + Open Sans'
+                  ? '🏢 Tema Corporativo: Azul Brillante + Azul Marino + Sansation'
                   : '💅 Tema Girly: Magenta + Plum + Quicksand'
                 }
               </p>
