@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import {
   DollarSign,
@@ -72,7 +71,7 @@ export default function CostosGastos() {
 
   return (
     <MainLayout>
-      <div className="max-w-4xl mx-auto space-y-8">
+      <div className="w-full max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="animate-fade-in">
           <h1 className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
@@ -84,272 +83,280 @@ export default function CostosGastos() {
           </p>
         </div>
 
-        {/* Resumen: Meta Mensual + Valor del Tiempo */}
-        <Card className="shadow-card animate-fade-in border-primary/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              Resumen
-            </CardTitle>
-            <CardDescription>
-              Tu meta mensual y valor del tiempo
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Valor del Tiempo Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  ¿Cuánto quieres ganar al mes?
-                </Label>
-                <Input
-                  type="number"
-                  value={desiredMonthlySalary}
-                  onChange={(e) => setBusinessConfig({ desiredMonthlySalary: parseFloat(e.target.value) || 0 })}
-                  className="text-lg"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  Horas laborales al mes
-                </Label>
-                <Input
-                  type="number"
-                  value={monthlyWorkHours}
-                  onChange={(e) => setBusinessConfig({ monthlyWorkHours: parseFloat(e.target.value) || 1 })}
-                  className="text-lg"
-                />
-              </div>
-            </div>
+        {/* Top Summary Bar */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in">
+          <Card className="bg-muted/50">
+            <CardContent className="p-4 text-center">
+              <p className="text-xs text-muted-foreground mb-1">Gastos Fijos</p>
+              <p className="text-2xl font-bold text-foreground">${totalFixedExpenses.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-muted/50">
+            <CardContent className="p-4 text-center">
+              <p className="text-xs text-muted-foreground mb-1">Sueldo Base</p>
+              <p className="text-2xl font-bold text-foreground">${desiredMonthlySalary.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-muted/50">
+            <CardContent className="p-4 text-center">
+              <p className="text-xs text-muted-foreground mb-1">Provisiones</p>
+              <p className="text-2xl font-bold text-foreground">${(aguinaldoMonthly + insuranceMonthly).toLocaleString()}</p>
+            </CardContent>
+          </Card>
+          <Card className="gradient-primary text-primary-foreground">
+            <CardContent className="p-4 text-center">
+              <p className="text-xs opacity-90 mb-1">Meta Total</p>
+              <p className="text-2xl font-bold">${totalMonthlyRequired.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+        </div>
 
-            {/* Cost per minute result */}
-            <div className="rounded-xl gradient-primary p-6 text-primary-foreground">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm opacity-90">Tu costo por minuto:</p>
-                  <p className="text-4xl font-bold">
-                    ${costPerMinute.toFixed(2)}
-                    <span className="text-lg font-normal ml-1">/min</span>
-                  </p>
-                  <p className="text-sm opacity-80 mt-1">
-                    = ${(costPerMinute * 60).toFixed(0)}/hora
-                  </p>
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
+          {/* Left Column: Valor del Tiempo + Opciones */}
+          <div className="space-y-6">
+            {/* Meta Mensual Card */}
+            <Card className="shadow-card">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  Meta Mensual
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-sm">
+                    <DollarSign className="h-3 w-3 text-muted-foreground" />
+                    ¿Cuánto quieres ganar al mes?
+                  </Label>
+                  <Input
+                    type="number"
+                    value={desiredMonthlySalary}
+                    onChange={(e) => setBusinessConfig({ desiredMonthlySalary: parseFloat(e.target.value) || 0 })}
+                  />
                 </div>
-                <Calculator className="h-12 w-12 opacity-50" />
-              </div>
-            </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-sm">
+                    <Clock className="h-3 w-3 text-muted-foreground" />
+                    Horas laborales al mes
+                  </Label>
+                  <Input
+                    type="number"
+                    value={monthlyWorkHours}
+                    onChange={(e) => setBusinessConfig({ monthlyWorkHours: parseFloat(e.target.value) || 1 })}
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-            {/* Aguinaldo & Insurance */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <Gift className="h-5 w-5 text-accent" />
-                  <div>
-                    <Label>¿Incluir Aguinaldo?</Label>
-                    <p className="text-xs text-muted-foreground">
-                      +${aguinaldoMonthly.toLocaleString()}/mes
-                    </p>
+            {/* Costo por Minuto + Aguinaldo + Seguro */}
+            <Card className="shadow-card">
+              <CardContent className="p-4 space-y-4">
+                {/* Cost per minute */}
+                <div className="rounded-xl gradient-primary p-4 text-primary-foreground">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs opacity-90">Tu costo por minuto:</p>
+                      <p className="text-3xl font-bold">
+                        ${costPerMinute.toFixed(2)}
+                        <span className="text-sm font-normal ml-1">/min</span>
+                      </p>
+                      <p className="text-xs opacity-80 mt-1">
+                        = ${(costPerMinute * 60).toFixed(0)}/hora
+                      </p>
+                    </div>
+                    <Calculator className="h-10 w-10 opacity-50" />
                   </div>
                 </div>
-                <Switch
-                  checked={includeAguinaldo}
-                  onCheckedChange={(checked) => setBusinessConfig({ includeAguinaldo: checked })}
-                />
-              </div>
-              <div className="space-y-2 p-4 rounded-xl bg-muted/50">
-                <Label className="flex items-center gap-2">
-                  <Heart className="h-4 w-4 text-accent" />
-                  Seguro Médico Anual
-                </Label>
-                <Input
-                  type="number"
-                  value={annualInsurance}
-                  onChange={(e) => setBusinessConfig({ annualInsurance: parseFloat(e.target.value) || 0 })}
-                />
-                <p className="text-xs text-muted-foreground">
-                  = ${insuranceMonthly.toLocaleString()}/mes
-                </p>
-              </div>
-            </div>
 
-            <Separator />
+                {/* Aguinaldo */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <div className="flex items-center gap-2">
+                    <Gift className="h-4 w-4 text-accent" />
+                    <div>
+                      <p className="text-sm font-medium">¿Incluir Aguinaldo?</p>
+                      <p className="text-xs text-muted-foreground">
+                        +${aguinaldoMonthly.toLocaleString()}/mes
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={includeAguinaldo}
+                    onCheckedChange={(checked) => setBusinessConfig({ includeAguinaldo: checked })}
+                  />
+                </div>
 
-            {/* Meta Mensual Summary */}
-            <div className="rounded-xl bg-secondary text-secondary-foreground p-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                <div>
-                  <p className="text-sm opacity-80">Gastos Fijos</p>
-                  <p className="text-xl font-bold">${totalFixedExpenses.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm opacity-80">Sueldo Base</p>
-                  <p className="text-xl font-bold">${desiredMonthlySalary.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm opacity-80">Provisiones</p>
-                  <p className="text-xl font-bold">${(aguinaldoMonthly + insuranceMonthly).toLocaleString()}</p>
-                </div>
-                <div className="col-span-2 md:col-span-1">
-                  <p className="text-sm opacity-80">Meta Total</p>
-                  <p className="text-3xl font-bold text-accent">
-                    ${totalMonthlyRequired.toLocaleString()}
+                {/* Seguro Médico */}
+                <div className="p-3 rounded-lg bg-muted/50 space-y-2">
+                  <Label className="flex items-center gap-2 text-sm">
+                    <Heart className="h-3 w-3 text-accent" />
+                    Seguro Médico Anual
+                  </Label>
+                  <Input
+                    type="number"
+                    value={annualInsurance}
+                    onChange={(e) => setBusinessConfig({ annualInsurance: parseFloat(e.target.value) || 0 })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    = ${insuranceMonthly.toLocaleString()}/mes
                   </p>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
+
+            {/* Alerta */}
             <div className="flex items-start gap-3 p-4 rounded-xl bg-accent/10 border border-accent/20">
-              <AlertTriangle className="h-5 w-5 text-accent mt-0.5" />
+              <AlertTriangle className="h-5 w-5 text-accent mt-0.5 shrink-0" />
               <p className="text-sm">
-                Tu negocio debe generar <strong>${totalMonthlyRequired.toLocaleString()}</strong> al mes 
-                para cubrir todos los gastos y pagarte lo que mereces.
+                Tu negocio debe generar <strong>${totalMonthlyRequired.toLocaleString()}</strong> al mes.
               </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Costos Fijos + Fondos de Ahorro (Single Card) */}
-        <Card className="shadow-card animate-fade-in">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-primary" />
-                Costos Fijos y Fondo de Ahorros
-              </CardTitle>
-              <CardDescription>
-                Gastos mensuales y porcentajes de ahorro automático
-              </CardDescription>
-            </div>
-            <Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Agregar Gasto
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Nuevo Gasto Fijo</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 mt-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Nombre</Label>
-                      <Input
-                        value={newExpense.name}
-                        onChange={(e) => setNewExpense({ ...newExpense, name: e.target.value })}
-                        placeholder="Ej. Renta"
-                      />
-                    </div>
-                    <div>
-                      <Label>Categoría</Label>
-                      <Input
-                        value={newExpense.category}
-                        onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
-                        placeholder="Ej. Local"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Monto</Label>
-                      <Input
-                        type="number"
-                        value={newExpense.amount}
-                        onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
-                        placeholder="8000"
-                      />
-                    </div>
-                    <div>
-                      <Label>Presupuesto</Label>
-                      <Input
-                        type="number"
-                        value={newExpense.budget}
-                        onChange={(e) => setNewExpense({ ...newExpense, budget: e.target.value })}
-                        placeholder="8000"
-                      />
-                    </div>
-                  </div>
-                  <Button onClick={handleAddExpense} className="w-full">
-                    Agregar Gasto
-                  </Button>
+          {/* Right Column: Costos Fijos + Fondos de Ahorro */}
+          <div className="lg:col-span-2">
+            <Card className="shadow-card h-full">
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-primary" />
+                    Costos Fijos y Fondo de Ahorros
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Gastos mensuales y porcentajes de ahorro automático
+                  </CardDescription>
                 </div>
-              </DialogContent>
-            </Dialog>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Fixed Expenses List */}
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                Costos Fijos Mensuales
-              </h3>
-              <div className="space-y-3">
-                {fixedExpenses.map((expense) => (
-                  <div
-                    key={expense.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full bg-primary" />
-                      <div>
-                        <p className="font-medium">{expense.name}</p>
-                        <p className="text-xs text-muted-foreground">{expense.category}</p>
+                <Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <Plus className="h-4 w-4 mr-1" />
+                      Agregar
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Nuevo Gasto Fijo</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 mt-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Nombre</Label>
+                          <Input
+                            value={newExpense.name}
+                            onChange={(e) => setNewExpense({ ...newExpense, name: e.target.value })}
+                            placeholder="Ej. Renta"
+                          />
+                        </div>
+                        <div>
+                          <Label>Categoría</Label>
+                          <Input
+                            value={newExpense.category}
+                            onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
+                            placeholder="Ej. Local"
+                          />
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold">${expense.amount.toLocaleString()}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => removeFixedExpense(expense.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Monto</Label>
+                          <Input
+                            type="number"
+                            value={newExpense.amount}
+                            onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
+                            placeholder="8000"
+                          />
+                        </div>
+                        <div>
+                          <Label>Presupuesto</Label>
+                          <Input
+                            type="number"
+                            value={newExpense.budget}
+                            onChange={(e) => setNewExpense({ ...newExpense, budget: e.target.value })}
+                            placeholder="8000"
+                          />
+                        </div>
+                      </div>
+                      <Button onClick={handleAddExpense} className="w-full">
+                        Agregar Gasto
                       </Button>
                     </div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between text-lg font-bold mt-4 pt-4 border-t border-border">
-                <span>Total Gastos Fijos:</span>
-                <span className="text-primary">${totalFixedExpenses.toLocaleString()}</span>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Savings Buckets */}
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                <PiggyBank className="h-4 w-4" />
-                Fondos de Ahorro (Buckets)
-              </h3>
-              <p className="text-xs text-muted-foreground mb-4">
-                Porcentaje de cada venta que se aparta automáticamente
-              </p>
-              <div className="space-y-4">
-                {savingsBuckets.map((bucket) => (
-                  <div key={bucket.id} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">{bucket.icon}</span>
-                        <span className="font-medium">{bucket.name}</span>
-                      </div>
-                      <span className="text-primary font-bold">{bucket.targetPercent}%</span>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Fixed Expenses List */}
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      Costos Fijos Mensuales
+                    </h3>
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                      {fixedExpenses.map((expense) => (
+                        <div
+                          key={expense.id}
+                          className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">{expense.name}</p>
+                              <p className="text-xs text-muted-foreground">{expense.category}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="font-bold text-sm">${expense.amount.toLocaleString()}</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive"
+                              onClick={() => removeFixedExpense(expense.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <Progress value={bucket.targetPercent * 3} className="h-2" />
+                    <div className="flex items-center justify-between text-base font-bold mt-4 pt-4 border-t border-border">
+                      <span>Total:</span>
+                      <span className="text-primary">${totalFixedExpenses.toLocaleString()}</span>
+                    </div>
                   </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-accent/10 mt-4">
-                <span className="font-medium">Total apartado por venta:</span>
-                <span className="font-bold text-accent">{totalBucketsPercent.toFixed(2)}%</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+
+                  {/* Savings Buckets */}
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                      <PiggyBank className="h-4 w-4" />
+                      Fondos de Ahorro (Buckets)
+                    </h3>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      Porcentaje de cada venta que se aparta
+                    </p>
+                    <div className="space-y-4">
+                      {savingsBuckets.map((bucket) => (
+                        <div key={bucket.id} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">{bucket.icon}</span>
+                              <span className="font-medium text-sm">{bucket.name}</span>
+                            </div>
+                            <span className="text-primary font-bold">{bucket.targetPercent}%</span>
+                          </div>
+                          <Progress value={bucket.targetPercent * 3} className="h-2" />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-accent/10 mt-4">
+                      <span className="font-medium text-sm">Total apartado:</span>
+                      <span className="font-bold text-accent">{totalBucketsPercent.toFixed(2)}%</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </MainLayout>
   );
