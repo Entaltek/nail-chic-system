@@ -10,6 +10,7 @@ import Inventario2 from "./pages/Inventario2";
 import CatalogoDisenos from "./pages/CatalogoDisenos";
 import Reportes from "./pages/Reportes";
 import ConfiguracionMaestra from "./pages/ConfiguracionMaestra";
+import CostosGastos from "./pages/CostosGastos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/catalogo" element={<CatalogoDisenos />} />
           <Route path="/reportes" element={<Reportes />} />
           <Route path="/configuracion" element={<ConfiguracionMaestra />} />
+          <Route path="/costos-gastos" element={<CostosGastos />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

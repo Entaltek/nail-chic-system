@@ -10,6 +10,7 @@ import {
   Palette,
   BarChart3,
   MenuSquare,
+  DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ const navItems = [
   { title: "Inventario 2.0", url: "/inventario", icon: Package },
   { title: "Catálogo Diseños", url: "/catalogo", icon: Palette },
   { title: "Reportes", url: "/reportes", icon: BarChart3 },
+  { title: "Costos y Gastos", url: "/costos-gastos", icon: DollarSign },
   { title: "Configuración", url: "/configuracion", icon: Settings2 },
 ];
 
