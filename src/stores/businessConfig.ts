@@ -1,12 +1,25 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+// Wear types for inventory categories
+export type WearType = 'POR_UNIDAD' | 'POR_VOLUMEN' | 'POR_TIEMPO' | 'ADICIONAL';
+
+// Inventory category with wear logic
+export interface InventoryCategory {
+  id: string;
+  name: string;
+  wearType: WearType;
+  description: string;
+  color: string; // Tailwind color class
+  icon: string;
+}
+
 // Team member type
 export interface TeamMember {
   id: string;
   name: string;
   role: 'owner' | 'employee';
-  commissionPercent: number; // Employee gets this %, studio keeps the rest
+  commissionPercent: number;
   isActive: boolean;
 }
 
@@ -32,7 +45,7 @@ export interface SavingsBucket {
 export interface ServiceRecipe {
   materialId: string;
   materialName: string;
-  usageAmount: number; // How much of the material is used per service
+  usageAmount: number;
 }
 
 // Service definition with cost calculation
@@ -44,23 +57,45 @@ export interface ServiceDefinition {
   estimatedMinutes: number;
   needsLength: boolean;
   recipe: ServiceRecipe[];
-  materialCost: number; // Calculated from recipe
+  materialCost: number;
 }
 
-// Inventory item with cost per use
+// Updated Inventory item with category reference
 export interface InventoryItem {
   id: string;
   name: string;
-  category: string;
+  categoryId: string; // Reference to InventoryCategory
+  category: string; // Legacy - display name
+  
+  // Common fields
   totalStock: number;
-  effectiveStock: number; // 85% of total
+  effectiveStock: number;
   unit: string;
   minStock: number;
   purchaseCost: number;
-  totalApplications: number; // How many uses per purchase
-  costPerUse: number; // Calculated: purchaseCost / totalApplications
-  weeklyUsageRate: number; // Average uses per week
-  daysUntilEmpty: number; // Calculated from usage rate
+  
+  // POR_UNIDAD fields
+  piecesPerBox?: number;
+  costPerPiece?: number;
+  
+  // POR_VOLUMEN fields
+  totalContent?: number; // ml or grams
+  contentUnit?: 'ml' | 'g';
+  estimatedUses?: number;
+  costPerUse: number;
+  
+  // POR_TIEMPO fields (Assets)
+  purchaseDate?: string;
+  usefulLifeMonths?: number;
+  monthlyDepreciation?: number;
+  
+  // ADICIONAL fields
+  pricePerUnit?: number; // What to charge customer
+  
+  // Alert calculations
+  totalApplications: number;
+  weeklyUsageRate: number;
+  daysUntilEmpty: number;
 }
 
 // Service log for analytics
@@ -73,7 +108,7 @@ export interface ServiceLog {
   realMinutes: number;
   chargedAmount: number;
   materialCost: number;
-  calculatedCost: number; // Time cost + Material cost
+  calculatedCost: number;
   profit: number;
   teamMemberId: string;
   teamMemberName: string;
@@ -97,18 +132,21 @@ interface BusinessConfigState {
   businessName: string;
   monthlyWorkHours: number;
   desiredMonthlySalary: number;
-  costPerMinute: number; // Calculated
+  costPerMinute: number;
   
   // Fixed expenses
   fixedExpenses: FixedExpense[];
-  totalFixedExpenses: number; // Calculated
+  totalFixedExpenses: number;
   
   // Savings buckets
   savingsBuckets: SavingsBucket[];
   
   // Team
   teamMembers: TeamMember[];
-  commissionBase: 'gross' | 'net'; // Calculate commission on total or after materials
+  commissionBase: 'gross' | 'net';
+  
+  // Inventory Categories (NEW)
+  inventoryCategories: InventoryCategory[];
   
   // Inventory
   inventory: InventoryItem[];
@@ -136,6 +174,11 @@ interface BusinessConfigState {
   updateTeamMember: (id: string, member: Partial<TeamMember>) => void;
   removeTeamMember: (id: string) => void;
   
+  // Category actions (NEW)
+  addInventoryCategory: (category: Omit<InventoryCategory, 'id'>) => void;
+  updateInventoryCategory: (id: string, category: Partial<InventoryCategory>) => void;
+  removeInventoryCategory: (id: string) => void;
+  
   addInventoryItem: (item: Omit<InventoryItem, 'id' | 'effectiveStock' | 'costPerUse' | 'daysUntilEmpty'>) => void;
   updateInventoryItem: (id: string, item: Partial<InventoryItem>) => void;
   removeInventoryItem: (id: string) => void;
@@ -162,6 +205,58 @@ interface BusinessConfigState {
   };
 }
 
+// Default inventory categories based on nail studio operations
+const defaultInventoryCategories: InventoryCategory[] = [
+  {
+    id: 'universales',
+    name: 'Insumos Universales',
+    wearType: 'POR_UNIDAD',
+    description: 'Material desechable que se usa en TODOS los servicios',
+    color: 'bg-blue-500',
+    icon: '🧤',
+  },
+  {
+    id: 'quimicos-acrilico',
+    name: 'Químicos Acrílico',
+    wearType: 'POR_VOLUMEN',
+    description: 'Insumos exclusivos para aplicación de uñas acrílicas',
+    color: 'bg-pink-500',
+    icon: '💅',
+  },
+  {
+    id: 'geles-esmaltes',
+    name: 'Geles y Esmaltes',
+    wearType: 'POR_VOLUMEN',
+    description: 'Insumos para Gel Semi, Rubber, Soft Gel',
+    color: 'bg-purple-500',
+    icon: '✨',
+  },
+  {
+    id: 'spa-pedicura',
+    name: 'Spa y Pedicura',
+    wearType: 'POR_VOLUMEN',
+    description: 'Productos de consumo masivo para pies',
+    color: 'bg-teal-500',
+    icon: '🦶',
+  },
+  {
+    id: 'herramientas-equipo',
+    name: 'Herramientas y Equipo',
+    wearType: 'POR_TIEMPO',
+    description: 'Activos que se desgastan por meses, no por cliente',
+    color: 'bg-amber-500',
+    icon: '🔧',
+  },
+  {
+    id: 'decoracion-arte',
+    name: 'Decoración y Arte',
+    wearType: 'ADICIONAL',
+    description: 'Elementos creativos con precio variable o unitario alto',
+    color: 'bg-rose-500',
+    icon: '💎',
+  },
+];
+
 const defaultSavingsBuckets: SavingsBucket[] = [
   { id: 'depreciation', name: 'Depreciación (Equipo/Drill)', icon: '🔧', targetPercent: 5, currentAmount: 0 },
   { id: 'aguinaldo', name: 'Aguinaldo', icon: '🎁', targetPercent: 8.33, currentAmount: 0 },
@@ -169,7 +264,6 @@ const defaultSavingsBuckets: SavingsBucket[] = [
   { id: 'emergency', name: 'Emergencias', icon: '🚨', targetPercent: 10, currentAmount: 0 },
 ];
 
-// JSON Semilla from Excel "Materiales Carlitos 1.csv"
 const seedFixedExpenses: FixedExpense[] = [
   { id: '1', name: 'Renta', category: 'Local', amount: 3000, budget: 3000 },
   { id: '2', name: 'Luz', category: 'Servicios', amount: 100, budget: 150 },
@@ -190,12 +284,16 @@ const defaultInventory: InventoryItem[] = [
   {
     id: '1',
     name: 'Monómero Acrílico',
-    category: 'Acrílico',
+    categoryId: 'quimicos-acrilico',
+    category: 'Químicos Acrílico',
     totalStock: 500,
     effectiveStock: 425,
     unit: 'ml',
     minStock: 100,
     purchaseCost: 500,
+    totalContent: 500,
+    contentUnit: 'ml',
+    estimatedUses: 100,
     totalApplications: 100,
     costPerUse: 5,
     weeklyUsageRate: 20,
@@ -204,12 +302,16 @@ const defaultInventory: InventoryItem[] = [
   {
     id: '2',
     name: 'Rubber Base',
-    category: 'Gel',
+    categoryId: 'geles-esmaltes',
+    category: 'Geles y Esmaltes',
     totalStock: 30,
     effectiveStock: 25.5,
     unit: 'ml',
     minStock: 10,
     purchaseCost: 350,
+    totalContent: 30,
+    contentUnit: 'ml',
+    estimatedUses: 30,
     totalApplications: 30,
     costPerUse: 11.67,
     weeklyUsageRate: 15,
@@ -218,12 +320,16 @@ const defaultInventory: InventoryItem[] = [
   {
     id: '3',
     name: 'Polvo Acrílico Rosa',
-    category: 'Acrílico',
+    categoryId: 'quimicos-acrilico',
+    category: 'Químicos Acrílico',
     totalStock: 200,
     effectiveStock: 170,
     unit: 'g',
     minStock: 50,
     purchaseCost: 280,
+    totalContent: 200,
+    contentUnit: 'g',
+    estimatedUses: 80,
     totalApplications: 80,
     costPerUse: 3.5,
     weeklyUsageRate: 18,
@@ -232,12 +338,16 @@ const defaultInventory: InventoryItem[] = [
   {
     id: '4',
     name: 'Top Coat Sin Capa',
-    category: 'Gel',
+    categoryId: 'geles-esmaltes',
+    category: 'Geles y Esmaltes',
     totalStock: 30,
     effectiveStock: 25.5,
     unit: 'ml',
     minStock: 10,
     purchaseCost: 250,
+    totalContent: 30,
+    contentUnit: 'ml',
+    estimatedUses: 50,
     totalApplications: 50,
     costPerUse: 5,
     weeklyUsageRate: 25,
@@ -246,20 +356,38 @@ const defaultInventory: InventoryItem[] = [
   {
     id: '5',
     name: 'Pedrería Swarovski',
-    category: 'Decoración',
+    categoryId: 'decoracion-arte',
+    category: 'Decoración y Arte',
     totalStock: 500,
     effectiveStock: 425,
     unit: 'piezas',
     minStock: 100,
     purchaseCost: 400,
+    pricePerUnit: 5,
     totalApplications: 500,
     costPerUse: 0.8,
     weeklyUsageRate: 30,
     daysUntilEmpty: 99,
   },
+  {
+    id: '6',
+    name: 'Guantes Nitrilo',
+    categoryId: 'universales',
+    category: 'Insumos Universales',
+    totalStock: 100,
+    effectiveStock: 85,
+    unit: 'pares',
+    minStock: 20,
+    purchaseCost: 200,
+    piecesPerBox: 100,
+    costPerPiece: 2,
+    totalApplications: 100,
+    costPerUse: 2,
+    weeklyUsageRate: 25,
+    daysUntilEmpty: 24,
+  },
 ];
 
-// Services from JSON seed with duration
 const defaultServices: ServiceDefinition[] = [
   { id: 'acrylic', name: 'Acrílico', basePrice: 700, suggestedPrice: 0, estimatedMinutes: 120, needsLength: true, recipe: [], materialCost: 65 },
   { id: 'gel', name: 'Gel Semipermanente', basePrice: 350, suggestedPrice: 0, estimatedMinutes: 60, needsLength: false, recipe: [], materialCost: 35 },
@@ -275,7 +403,7 @@ export const useBusinessConfig = create<BusinessConfigState>()(
       businessName: 'Entaltek Nail Studio',
       monthlyWorkHours: 160,
       desiredMonthlySalary: 15000,
-      costPerMinute: 15000 / (160 * 60), // ~1.56 per minute
+      costPerMinute: 15000 / (160 * 60),
       
       fixedExpenses: seedFixedExpenses,
       totalFixedExpenses: seedFixedExpenses.reduce((sum, e) => sum + e.amount, 0),
@@ -285,6 +413,7 @@ export const useBusinessConfig = create<BusinessConfigState>()(
       teamMembers: defaultTeamMembers,
       commissionBase: 'gross',
       
+      inventoryCategories: defaultInventoryCategories,
       inventory: defaultInventory,
       services: defaultServices,
       serviceLogs: [],
@@ -297,14 +426,12 @@ export const useBusinessConfig = create<BusinessConfigState>()(
       setBusinessConfig: (config) => set((state) => {
         const newState = { ...state, ...config };
         
-        // Recalculate cost per minute if relevant fields changed
         if (config.desiredMonthlySalary !== undefined || config.monthlyWorkHours !== undefined) {
           const salary = config.desiredMonthlySalary ?? state.desiredMonthlySalary;
           const hours = config.monthlyWorkHours ?? state.monthlyWorkHours;
           newState.costPerMinute = salary / (hours * 60);
         }
         
-        // Recalculate total fixed expenses
         if (config.fixedExpenses !== undefined) {
           newState.totalFixedExpenses = config.fixedExpenses.reduce((sum, e) => sum + e.amount, 0);
         }
@@ -353,9 +480,46 @@ export const useBusinessConfig = create<BusinessConfigState>()(
         teamMembers: state.teamMembers.filter((m) => m.id !== id),
       })),
       
+      // Category actions
+      addInventoryCategory: (category) => set((state) => ({
+        inventoryCategories: [...state.inventoryCategories, { ...category, id: Date.now().toString() }],
+      })),
+      
+      updateInventoryCategory: (id, category) => set((state) => ({
+        inventoryCategories: state.inventoryCategories.map((c) =>
+          c.id === id ? { ...c, ...category } : c
+        ),
+      })),
+      
+      removeInventoryCategory: (id) => set((state) => ({
+        inventoryCategories: state.inventoryCategories.filter((c) => c.id !== id),
+      })),
+      
       addInventoryItem: (item) => set((state) => {
-        const effectiveStock = item.totalStock * 0.85;
-        const costPerUse = item.purchaseCost / item.totalApplications;
+        const category = state.inventoryCategories.find(c => c.id === item.categoryId);
+        let costPerUse = 0;
+        let effectiveStock = item.totalStock * 0.85;
+        
+        if (category) {
+          switch (category.wearType) {
+            case 'POR_UNIDAD':
+              costPerUse = item.costPerPiece || (item.purchaseCost / (item.piecesPerBox || item.totalApplications));
+              break;
+            case 'POR_VOLUMEN':
+              costPerUse = item.purchaseCost / (item.estimatedUses || item.totalApplications);
+              break;
+            case 'POR_TIEMPO':
+              // Monthly depreciation, not per-use cost
+              costPerUse = item.purchaseCost / (item.usefulLifeMonths || 12);
+              break;
+            case 'ADICIONAL':
+              costPerUse = item.purchaseCost / item.totalApplications;
+              break;
+          }
+        } else {
+          costPerUse = item.purchaseCost / item.totalApplications;
+        }
+        
         const daysUntilEmpty = item.weeklyUsageRate > 0 
           ? Math.floor((effectiveStock / item.weeklyUsageRate) * 7)
           : 999;
@@ -376,7 +540,6 @@ export const useBusinessConfig = create<BusinessConfigState>()(
           if (i.id !== id) return i;
           const updated = { ...i, ...item };
           
-          // Recalculate derived fields if relevant values changed
           if (item.totalStock !== undefined) {
             updated.effectiveStock = updated.totalStock * 0.85;
           }
@@ -398,12 +561,11 @@ export const useBusinessConfig = create<BusinessConfigState>()(
       })),
       
       addService: (service) => set((state) => {
-        // Calculate suggested price based on time + materials
         const timeCost = service.estimatedMinutes * state.costPerMinute;
         const suggestedPrice = Math.ceil((timeCost + service.recipe.reduce((sum, r) => {
           const material = state.inventory.find((i) => i.id === r.materialId);
           return sum + (material ? material.costPerUse * r.usageAmount : 0);
-        }, 0)) / 10) * 10; // Round to nearest 10
+        }, 0)) / 10) * 10;
         
         const materialCost = service.recipe.reduce((sum, r) => {
           const material = state.inventory.find((i) => i.id === r.materialId);
@@ -431,7 +593,6 @@ export const useBusinessConfig = create<BusinessConfigState>()(
       })),
       
       addServiceLog: (log) => set((state) => {
-        const service = state.services.find((s) => s.id === log.serviceId);
         const timeCost = log.realMinutes * state.costPerMinute;
         const calculatedCost = timeCost + log.materialCost;
         const profit = log.chargedAmount - calculatedCost;
@@ -471,7 +632,6 @@ export const useBusinessConfig = create<BusinessConfigState>()(
         const insuranceMonthly = state.annualInsurance / 12;
         const totalMonthlyRequired = state.totalFixedExpenses + state.desiredMonthlySalary + aguinaldoMonthly + insuranceMonthly;
         
-        // Calculate average ticket from services
         const avgTicket = state.services.length > 0
           ? state.services.reduce((sum, s) => sum + s.basePrice, 0) / state.services.length
           : 500;
@@ -498,7 +658,8 @@ export const useBusinessConfig = create<BusinessConfigState>()(
       },
     }),
     {
-      name: 'entaltek-business-config',
+      name: 'business-config-storage',
+      version: 2,
     }
   )
 );
