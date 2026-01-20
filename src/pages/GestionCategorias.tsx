@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,7 @@ import {
   Sparkles,
   Info,
   Eye,
+  Search,
 } from "lucide-react";
 import { useBusinessConfig, InventoryCategory, SuperCategoryType } from "@/stores/businessConfig";
 import { toast } from "@/hooks/use-toast";
@@ -102,6 +103,8 @@ export default function GestionCategorias() {
   const { inventoryCategories, addInventoryCategory, updateInventoryCategory, removeInventoryCategory, inventory } = useBusinessConfig();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<InventoryCategory | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSuperCategories, setSelectedSuperCategories] = useState<Set<SuperCategoryType>>(new Set());
   const [formData, setFormData] = useState({
     name: '',
     superCategory: 'QUIMICOS_GELES' as SuperCategoryType,
@@ -109,6 +112,24 @@ export default function GestionCategorias() {
     color: 'bg-blue-500',
     icon: '📦',
   });
+
+  // Toggle super category filter
+  const toggleSuperCategoryFilter = (superCat: SuperCategoryType) => {
+    setSelectedSuperCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(superCat)) {
+        newSet.delete(superCat);
+      } else {
+        newSet.add(superCat);
+      }
+      return newSet;
+    });
+  };
+
+  const clearFilters = () => {
+    setSelectedSuperCategories(new Set());
+    setSearchTerm('');
+  };
 
   const resetForm = () => {
     setFormData({
@@ -187,12 +208,37 @@ export default function GestionCategorias() {
     return inventory.filter(item => item.categoryId === categoryId).length;
   };
 
-  // Group categories by super category
-  const groupedCategories = Object.entries(superCategoryInfo).map(([key, info]) => ({
-    superCategory: key as SuperCategoryType,
-    info,
-    categories: inventoryCategories.filter(c => c.superCategory === key),
-  }));
+  // Group categories by super category with filters
+  const groupedCategories = useMemo(() => {
+    return Object.entries(superCategoryInfo).map(([key, info]) => {
+      const superCat = key as SuperCategoryType;
+      let categories = inventoryCategories.filter(c => c.superCategory === key);
+      
+      // Apply search filter
+      if (searchTerm) {
+        categories = categories.filter(c => 
+          c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          c.description.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+      
+      return {
+        superCategory: superCat,
+        info,
+        categories,
+      };
+    });
+  }, [inventoryCategories, searchTerm]);
+
+  // Filter which super categories to show
+  const filteredGroups = useMemo(() => {
+    if (selectedSuperCategories.size === 0) {
+      return groupedCategories;
+    }
+    return groupedCategories.filter(g => selectedSuperCategories.has(g.superCategory));
+  }, [groupedCategories, selectedSuperCategories]);
+
+  const isAllSelected = selectedSuperCategories.size === 0;
 
   return (
     <MainLayout>
@@ -309,19 +355,51 @@ export default function GestionCategorias() {
           </Dialog>
         </div>
 
-        {/* Super Category Legend - Compact */}
-        <div className="flex flex-wrap gap-2">
-          {Object.entries(superCategoryInfo).map(([key, info]) => (
-            <Badge key={key} variant="outline" className="py-1 px-2 text-xs gap-1">
-              <span>{info.emoji}</span>
-              <span>{info.label}</span>
+        {/* Search and Filters */}
+        <div className="space-y-3">
+          {/* Search Input */}
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar categoría..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          {/* Super Category Filter Badges */}
+          <div className="flex flex-wrap gap-2">
+            <Badge 
+              variant={isAllSelected ? "default" : "outline"} 
+              className="py-1.5 px-3 cursor-pointer hover:bg-primary/90 transition-colors"
+              onClick={clearFilters}
+            >
+              Todas
             </Badge>
-          ))}
+            {Object.entries(superCategoryInfo).map(([key, info]) => {
+              const superCat = key as SuperCategoryType;
+              const isSelected = selectedSuperCategories.has(superCat);
+              const count = inventoryCategories.filter(c => c.superCategory === key).length;
+              return (
+                <Badge 
+                  key={key} 
+                  variant={isSelected ? "default" : "outline"} 
+                  className="py-1.5 px-3 cursor-pointer hover:bg-primary/90 transition-colors gap-1"
+                  onClick={() => toggleSuperCategoryFilter(superCat)}
+                >
+                  <span>{info.emoji}</span>
+                  <span>{info.label}</span>
+                  <span className="ml-1 opacity-70">({count})</span>
+                </Badge>
+              );
+            })}
+          </div>
         </div>
 
         {/* Categories by Super Category - 2 Columns */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {groupedCategories.map(({ superCategory, info, categories }) => {
+          {filteredGroups.map(({ superCategory, info, categories }) => {
             if (categories.length === 0) return null;
             return (
               <Card key={superCategory} className="overflow-hidden">
