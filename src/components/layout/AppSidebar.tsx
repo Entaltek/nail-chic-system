@@ -11,6 +11,7 @@ import {
   BarChart3,
   MenuSquare,
   DollarSign,
+  FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,8 @@ const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Servicio en Curso", url: "/servicio", icon: Timer },
   { title: "Menú Servicios", url: "/menu-servicios", icon: MenuSquare },
-  { title: "Inventario 2.0", url: "/inventario", icon: Package },
+  { title: "Inventario", url: "/inventario", icon: Package },
+  { title: "Categorías", url: "/gestion-categorias", icon: FolderOpen },
   { title: "Catálogo Diseños", url: "/catalogo", icon: Palette },
   { title: "Reportes", url: "/reportes", icon: BarChart3 },
   { title: "Costos y Gastos", url: "/costos-gastos", icon: DollarSign },
