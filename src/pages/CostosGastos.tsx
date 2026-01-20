@@ -6,6 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DollarSign,
   Clock,
@@ -17,6 +25,10 @@ import {
   Gift,
   AlertTriangle,
   TrendingUp,
+  Building2,
+  Smartphone,
+  Users,
+  HelpCircle,
 } from "lucide-react";
 import {
   Dialog,
@@ -25,8 +37,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useBusinessConfig } from "@/stores/businessConfig";
+import { useBusinessConfig, ExpenseCategoryType } from "@/stores/businessConfig";
 import { toast } from "@/hooks/use-toast";
+
+const expenseTypeInfo: Record<ExpenseCategoryType, { label: string; icon: React.ReactNode; color: string }> = {
+  INFRAESTRUCTURA: { label: 'Infraestructura', icon: <Building2 className="h-3 w-3" />, color: 'bg-blue-500' },
+  SUSCRIPCIONES: { label: 'Suscripciones', icon: <Smartphone className="h-3 w-3" />, color: 'bg-purple-500' },
+  EQUIPO_STAFF: { label: 'Staff', icon: <Users className="h-3 w-3" />, color: 'bg-green-500' },
+  OTROS: { label: 'Otros', icon: <HelpCircle className="h-3 w-3" />, color: 'bg-gray-500' },
+};
 
 export default function CostosGastos() {
   const {
@@ -40,11 +59,18 @@ export default function CostosGastos() {
     annualInsurance,
     setBusinessConfig,
     addFixedExpense,
+    updateFixedExpense,
     removeFixedExpense,
   } = useBusinessConfig();
 
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
-  const [newExpense, setNewExpense] = useState({ name: "", category: "", amount: "", budget: "" });
+  const [newExpense, setNewExpense] = useState({ 
+    name: "", 
+    category: "", 
+    expenseType: "OTROS" as ExpenseCategoryType,
+    amount: "", 
+    budget: "" 
+  });
 
   // Calculations
   const aguinaldoMonthly = includeAguinaldo ? desiredMonthlySalary / 12 : 0;
@@ -52,6 +78,14 @@ export default function CostosGastos() {
   const totalSalaryProvisions = desiredMonthlySalary + aguinaldoMonthly + insuranceMonthly;
   const totalMonthlyRequired = totalFixedExpenses + totalSalaryProvisions;
   const totalBucketsPercent = savingsBuckets.reduce((sum, b) => sum + b.targetPercent, 0);
+
+  // Group expenses by type
+  const expensesByType = fixedExpenses.reduce((acc, expense) => {
+    const type = expense.expenseType || 'OTROS';
+    if (!acc[type]) acc[type] = [];
+    acc[type].push(expense);
+    return acc;
+  }, {} as Record<ExpenseCategoryType, typeof fixedExpenses>);
 
   const handleAddExpense = () => {
     if (!newExpense.name || !newExpense.amount) {
@@ -61,11 +95,11 @@ export default function CostosGastos() {
     addFixedExpense({
       name: newExpense.name,
       category: newExpense.category || "Otro",
-      expenseType: 'OTROS',
+      expenseType: newExpense.expenseType,
       amount: parseFloat(newExpense.amount),
       budget: parseFloat(newExpense.budget) || parseFloat(newExpense.amount),
     });
-    setNewExpense({ name: "", category: "", amount: "", budget: "" });
+    setNewExpense({ name: "", category: "", expenseType: "OTROS", amount: "", budget: "" });
     setIsExpenseDialogOpen(false);
     toast({ title: "¡Gasto fijo agregado! 💰" });
   };
@@ -234,7 +268,7 @@ export default function CostosGastos() {
                       Agregar
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+              <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Nuevo Gasto Fijo</DialogTitle>
                     </DialogHeader>
@@ -249,13 +283,34 @@ export default function CostosGastos() {
                           />
                         </div>
                         <div>
-                          <Label>Categoría</Label>
+                          <Label>Etiqueta</Label>
                           <Input
                             value={newExpense.category}
                             onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
                             placeholder="Ej. Local"
                           />
                         </div>
+                      </div>
+                      <div>
+                        <Label>Tipo de Gasto</Label>
+                        <Select 
+                          value={newExpense.expenseType} 
+                          onValueChange={(v) => setNewExpense({ ...newExpense, expenseType: v as ExpenseCategoryType })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(expenseTypeInfo).map(([key, info]) => (
+                              <SelectItem key={key} value={key}>
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-3 h-3 rounded-full ${info.color}`} />
+                                  {info.label}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -286,38 +341,58 @@ export default function CostosGastos() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Fixed Expenses List */}
+                  {/* Fixed Expenses List - Grouped by Type */}
                   <div>
                     <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
                       <DollarSign className="h-4 w-4" />
                       Costos Fijos Mensuales
                     </h3>
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                      {fixedExpenses.map((expense) => (
-                        <div
-                          key={expense.id}
-                          className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
-                            <div className="min-w-0">
-                              <p className="font-medium text-sm truncate">{expense.name}</p>
-                              <p className="text-xs text-muted-foreground">{expense.category}</p>
+                    <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                      {Object.entries(expenseTypeInfo).map(([type, info]) => {
+                        const expenses = expensesByType[type as ExpenseCategoryType] || [];
+                        if (expenses.length === 0) return null;
+                        const typeTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
+                        return (
+                          <div key={type} className="space-y-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge className={`${info.color} text-white gap-1 text-xs`}>
+                                {info.icon}
+                                {info.label}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground ml-auto">
+                                ${typeTotal.toLocaleString()}
+                              </span>
                             </div>
+                            {expenses.map((expense) => (
+                              <div
+                                key={expense.id}
+                                className="flex items-center justify-between p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors ml-2"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className={`w-2 h-2 rounded-full ${info.color} shrink-0`} />
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-sm truncate">{expense.name}</p>
+                                    {expense.category && (
+                                      <p className="text-xs text-muted-foreground">{expense.category}</p>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="font-bold text-sm">${expense.amount.toLocaleString()}</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-destructive hover:text-destructive"
+                                    onClick={() => removeFixedExpense(expense.id)}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="font-bold text-sm">${expense.amount.toLocaleString()}</span>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive"
-                              onClick={() => removeFixedExpense(expense.id)}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                     <div className="flex items-center justify-between text-base font-bold mt-4 pt-4 border-t border-border">
                       <span>Total:</span>

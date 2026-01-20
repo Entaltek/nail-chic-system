@@ -27,12 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Package,
   Plus,
@@ -47,6 +42,8 @@ import {
   Eye,
   CircleDot,
   Search,
+  ChevronDown,
+  X,
 } from "lucide-react";
 import { 
   useBusinessConfig, 
@@ -58,12 +55,12 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 
-const superCategoryLabels: Record<SuperCategoryType, { label: string; emoji: string }> = {
-  CONSUMIBLES_BASICOS: { label: 'Consumibles Básicos', emoji: '🔵' },
-  QUIMICOS_GELES: { label: 'Químicos y Geles', emoji: '🟣' },
-  DECORACION_CONTABLE: { label: 'Decoración Contable', emoji: '✨' },
-  DECORACION_GRANEL: { label: 'Decoración a Granel', emoji: '🎨' },
-  EQUIPO_HERRAMIENTAS: { label: 'Equipo y Herramientas', emoji: '🛠' },
+const superCategoryLabels: Record<SuperCategoryType, { label: string; emoji: string; description: string }> = {
+  CONSUMIBLES_BASICOS: { label: 'Consumibles Básicos', emoji: '🔵', description: 'Stock exacto por pieza' },
+  QUIMICOS_GELES: { label: 'Químicos y Geles', emoji: '🟣', description: 'Calculadora de gota' },
+  DECORACION_CONTABLE: { label: 'Decoración Contable', emoji: '✨', description: 'Piezas de alto valor' },
+  DECORACION_GRANEL: { label: 'Decoración a Granel', emoji: '🎨', description: 'Estado visual' },
+  EQUIPO_HERRAMIENTAS: { label: 'Equipo y Herramientas', emoji: '🛠', description: 'Depreciación mensual' },
 };
 
 const visualStatusOptions: { value: VisualStockStatus; label: string; color: string }[] = [
@@ -72,6 +69,8 @@ const visualStatusOptions: { value: VisualStockStatus; label: string; color: str
   { value: 'bajo', label: '🔴 Bajo (Comprar)', color: 'bg-red-500' },
 ];
 
+const TOP_ITEMS_LIMIT = 5;
+
 export default function Inventario2() {
   const { inventory, inventoryCategories, addInventoryItem, updateInventoryItem, removeInventoryItem } = useBusinessConfig();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -79,21 +78,20 @@ export default function Inventario2() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSuperCategories, setSelectedSuperCategories] = useState<Set<SuperCategoryType>>(new Set());
   
+  // Modal for expanded view
+  const [expandedCategory, setExpandedCategory] = useState<{ superCategory: SuperCategoryType; categoryId?: string } | null>(null);
+  
   // Dynamic form state based on category
   const [formData, setFormData] = useState({
     name: '',
     purchaseCost: '',
-    // CONSUMIBLES_BASICOS & DECORACION_CONTABLE
     stockPieces: '',
     minStockPieces: '',
     weeklyUsageRate: '',
-    // QUIMICOS_GELES
     totalContent: '',
     contentUnit: 'ml' as 'ml' | 'g',
     estimatedUses: '',
-    // DECORACION_GRANEL
     visualStatus: 'lleno' as VisualStockStatus,
-    // EQUIPO_HERRAMIENTAS
     purchaseDate: '',
     usefulLifeMonths: '',
   });
@@ -238,7 +236,7 @@ export default function Inventario2() {
         if (item.visualStatus === 'medio') return 'low';
         return 'ok';
       case 'EQUIPO_HERRAMIENTAS':
-        return 'ok'; // Assets don't have stock alerts
+        return 'ok';
       default:
         return 'ok';
     }
@@ -247,40 +245,38 @@ export default function Inventario2() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "critical":
-        return <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />Crítico</Badge>;
+        return <Badge variant="destructive" className="gap-1 text-xs"><AlertTriangle className="h-3 w-3" />Crítico</Badge>;
       case "urgent":
-        return <Badge className="bg-orange-500 text-white gap-1"><Clock className="h-3 w-3" />¡Urgente!</Badge>;
+        return <Badge className="bg-orange-500 text-white gap-1 text-xs"><Clock className="h-3 w-3" />¡Urgente!</Badge>;
       case "low":
-        return <Badge className="bg-accent text-accent-foreground gap-1">Stock Bajo</Badge>;
+        return <Badge className="bg-accent text-accent-foreground gap-1 text-xs">Bajo</Badge>;
       default:
-        return <Badge variant="secondary" className="bg-green-100 text-green-700">OK</Badge>;
+        return <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">OK</Badge>;
     }
   };
 
-  // Get visual status badge for DECORACION_GRANEL
   const getVisualStatusBadge = (status: VisualStockStatus) => {
     switch (status) {
       case 'lleno':
-        return <Badge className="bg-green-500 text-white gap-1"><CircleDot className="h-3 w-3" />Lleno</Badge>;
+        return <Badge className="bg-green-500 text-white gap-1 text-xs"><CircleDot className="h-3 w-3" />Lleno</Badge>;
       case 'medio':
-        return <Badge className="bg-yellow-500 text-white gap-1"><CircleDot className="h-3 w-3" />Medio</Badge>;
+        return <Badge className="bg-yellow-500 text-white gap-1 text-xs"><CircleDot className="h-3 w-3" />Medio</Badge>;
       case 'bajo':
-        return <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />¡Comprar!</Badge>;
+        return <Badge variant="destructive" className="gap-1 text-xs"><AlertTriangle className="h-3 w-3" />¡Comprar!</Badge>;
     }
   };
 
-  // Get display info based on category type
   const getCostDisplay = (item: InventoryItem) => {
     switch (item.superCategory) {
       case 'CONSUMIBLES_BASICOS':
       case 'DECORACION_CONTABLE':
-        return `$${(item.costPerPiece || 0).toFixed(2)}/pieza`;
+        return `$${(item.costPerPiece || 0).toFixed(2)}/pz`;
       case 'QUIMICOS_GELES':
         return `$${(item.costPerUse || 0).toFixed(2)}/uso`;
       case 'DECORACION_GRANEL':
-        return `$${item.purchaseCost.toFixed(0)} total`;
+        return `$${item.purchaseCost.toFixed(0)}`;
       case 'EQUIPO_HERRAMIENTAS':
-        return `$${(item.monthlyDepreciation || 0).toFixed(2)}/mes`;
+        return `$${(item.monthlyDepreciation || 0).toFixed(0)}/mes`;
       default:
         return '-';
     }
@@ -290,21 +286,21 @@ export default function Inventario2() {
     switch (item.superCategory) {
       case 'CONSUMIBLES_BASICOS':
       case 'DECORACION_CONTABLE':
-        return `${item.stockPieces || 0} piezas`;
+        return `${item.stockPieces || 0} pz`;
       case 'QUIMICOS_GELES':
         return `${item.currentStock || 0} ${item.contentUnit || 'ml'}`;
       case 'DECORACION_GRANEL':
         return '-';
       case 'EQUIPO_HERRAMIENTAS':
-        return `${item.usefulLifeMonths || 0} meses vida útil`;
+        return `${item.usefulLifeMonths || 0}m`;
       default:
         return '-';
     }
   };
 
-  // Group inventory by super category with filters
+  // Group inventory by super category
   const groupedBySuperCategory = useMemo(() => {
-    const groups: Record<SuperCategoryType, { category: InventoryCategory; items: InventoryItem[] }[]> = {
+    const groups: Record<SuperCategoryType, InventoryItem[]> = {
       CONSUMIBLES_BASICOS: [],
       QUIMICOS_GELES: [],
       DECORACION_CONTABLE: [],
@@ -312,32 +308,37 @@ export default function Inventario2() {
       EQUIPO_HERRAMIENTAS: [],
     };
 
-    inventoryCategories.forEach(cat => {
-      let items = inventory.filter(item => item.categoryId === cat.id);
-      
-      // Apply search filter
+    inventory.forEach(item => {
       if (searchTerm) {
-        items = items.filter(item => 
-          item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.category?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        const matches = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.category?.toLowerCase().includes(searchTerm.toLowerCase());
+        if (!matches) return;
       }
-      
-      groups[cat.superCategory].push({ category: cat, items });
+      groups[item.superCategory].push(item);
+    });
+
+    // Sort by priority: critical first, then by name
+    Object.keys(groups).forEach(key => {
+      groups[key as SuperCategoryType].sort((a, b) => {
+        const statusA = getStockStatus(a);
+        const statusB = getStockStatus(b);
+        const priorityOrder = { critical: 0, urgent: 1, low: 2, ok: 3 };
+        const priorityDiff = priorityOrder[statusA as keyof typeof priorityOrder] - priorityOrder[statusB as keyof typeof priorityOrder];
+        if (priorityDiff !== 0) return priorityDiff;
+        return a.name.localeCompare(b.name);
+      });
     });
 
     return groups;
-  }, [inventory, inventoryCategories, searchTerm]);
+  }, [inventory, searchTerm]);
 
   // Filter which super categories to show
-  const filteredGroups = useMemo(() => {
+  const filteredSuperCategories = useMemo(() => {
     if (selectedSuperCategories.size === 0) {
-      return Object.entries(groupedBySuperCategory);
+      return Object.keys(superCategoryLabels) as SuperCategoryType[];
     }
-    return Object.entries(groupedBySuperCategory).filter(([key]) => 
-      selectedSuperCategories.has(key as SuperCategoryType)
-    );
-  }, [groupedBySuperCategory, selectedSuperCategories]);
+    return Array.from(selectedSuperCategories);
+  }, [selectedSuperCategories]);
 
   const isAllSelected = selectedSuperCategories.size === 0;
 
@@ -347,7 +348,15 @@ export default function Inventario2() {
     const status = getStockStatus(i);
     return status === 'critical' || status === 'urgent';
   }).length;
-  const lowGranelItems = inventory.filter(i => i.superCategory === 'DECORACION_GRANEL' && i.visualStatus === 'bajo').length;
+
+  // Get top 5 critical items for a super category
+  const getTopItems = (superCat: SuperCategoryType) => {
+    return groupedBySuperCategory[superCat].slice(0, TOP_ITEMS_LIMIT);
+  };
+
+  const getRemainingCount = (superCat: SuperCategoryType) => {
+    return Math.max(0, groupedBySuperCategory[superCat].length - TOP_ITEMS_LIMIT);
+  };
 
   // Dynamic form fields based on category type
   const renderCategorySpecificFields = () => {
@@ -526,6 +535,49 @@ export default function Inventario2() {
     }
   };
 
+  // Render item row
+  const renderItemRow = (item: InventoryItem, compact = false) => {
+    const status = getStockStatus(item);
+    const isGranel = item.superCategory === 'DECORACION_GRANEL';
+    
+    return (
+      <div key={item.id} className={`flex items-center gap-2 ${compact ? 'p-1.5' : 'p-2'} rounded bg-muted/30 text-sm group`}>
+        <span className={`font-medium flex-1 truncate ${compact ? 'text-xs' : ''}`}>{item.name}</span>
+        <span className={`text-primary font-semibold ${compact ? 'text-xs' : 'text-xs'}`}>{getCostDisplay(item)}</span>
+        {isGranel ? (
+          <Select
+            value={item.visualStatus}
+            onValueChange={(v) => updateInventoryItem(item.id, { visualStatus: v as VisualStockStatus })}
+          >
+            <SelectTrigger className="w-20 h-6 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {visualStatusOptions.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <>
+            <span className="text-xs text-muted-foreground hidden sm:inline">{getStockDisplay(item)}</span>
+            {getStatusBadge(status)}
+          </>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100"
+          onClick={() => removeInventoryItem(item.id)}
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+    );
+  };
+
   return (
     <MainLayout>
       <div className="space-y-4">
@@ -537,7 +589,7 @@ export default function Inventario2() {
               Inventario Inteligente
             </h1>
             <p className="text-muted-foreground mt-1">
-              Productos organizados por tipo con cálculo automático de costos
+              Vista compacta con los 5 items más críticos por categoría
             </p>
           </div>
           <div className="flex gap-2">
@@ -551,7 +603,7 @@ export default function Inventario2() {
               <DialogTrigger asChild>
                 <Button className="shadow-button">
                   <Plus className="mr-2 h-4 w-4" />
-                  Agregar Producto
+                  Agregar
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
@@ -648,11 +700,6 @@ export default function Inventario2() {
               <span className="font-bold">{criticalItems}</span> críticos
             </Badge>
           )}
-          {lowGranelItems > 0 && (
-            <Badge className="bg-amber-500 text-white py-1.5 px-3 text-sm">
-              <span className="font-bold">{lowGranelItems}</span> granel bajo
-            </Badge>
-          )}
         </div>
 
         {/* Search and Filters */}
@@ -680,8 +727,7 @@ export default function Inventario2() {
             {Object.entries(superCategoryLabels).map(([key, info]) => {
               const superCat = key as SuperCategoryType;
               const isSelected = selectedSuperCategories.has(superCat);
-              const count = Object.values(groupedBySuperCategory[superCat] || [])
-                .reduce((sum, g) => sum + g.items.length, 0);
+              const count = groupedBySuperCategory[superCat].length;
               return (
                 <Badge 
                   key={key} 
@@ -698,105 +744,80 @@ export default function Inventario2() {
           </div>
         </div>
 
-        {/* Inventory by Super Category - Dynamic columns */}
-        <div className={`grid gap-4 ${isAllSelected ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
-          {filteredGroups.map(([superCat, categoryGroups]) => {
-            const info = superCategoryLabels[superCat as SuperCategoryType];
-            const totalItems = categoryGroups.reduce((sum, g) => sum + g.items.length, 0);
+        {/* Clean Dashboard Cards - Top 5 per Super Category */}
+        <div className={`grid gap-4 ${isAllSelected ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
+          {filteredSuperCategories.map((superCat) => {
+            const info = superCategoryLabels[superCat];
+            const items = groupedBySuperCategory[superCat];
+            const topItems = getTopItems(superCat);
+            const remainingCount = getRemainingCount(superCat);
+            const criticalCount = items.filter(i => ['critical', 'urgent'].includes(getStockStatus(i))).length;
             
-            if (totalItems === 0) return null;
+            if (items.length === 0) return null;
 
             return (
               <Card key={superCat} className="shadow-card animate-fade-in overflow-hidden">
                 <CardHeader className="py-2.5 px-3 bg-muted/30">
                   <div className="flex items-center gap-2">
                     <span className="text-lg">{info.emoji}</span>
-                    <CardTitle className="text-sm">{info.label}</CardTitle>
-                    <Badge variant="secondary" className="text-xs">{totalItems}</Badge>
+                    <CardTitle className="text-sm flex-1">{info.label}</CardTitle>
+                    <Badge variant="secondary" className="text-xs">{items.length}</Badge>
+                    {criticalCount > 0 && (
+                      <Badge variant="destructive" className="text-xs">{criticalCount}</Badge>
+                    )}
                   </div>
+                  <CardDescription className="text-xs mt-0.5">{info.description}</CardDescription>
                 </CardHeader>
                 <CardContent className="p-2">
-                  <Accordion type="multiple" defaultValue={categoryGroups.map(g => g.category.id)} className="space-y-1">
-                    {categoryGroups.map(({ category, items }) => {
-                      if (items.length === 0) return null;
-                      const criticalCount = items.filter(i => {
-                        const status = getStockStatus(i);
-                        return status === 'critical' || status === 'urgent';
-                      }).length;
-
-                      return (
-                        <AccordionItem key={category.id} value={category.id} className="border rounded-md px-2">
-                          <AccordionTrigger className="hover:no-underline py-2">
-                            <div className="flex items-center gap-2 w-full">
-                              <div className={`w-6 h-6 rounded ${category.color} flex items-center justify-center text-xs`}>
-                                {category.icon}
-                              </div>
-                              <span className="font-medium text-sm">{category.name}</span>
-                              <Badge variant="secondary" className="text-xs">{items.length}</Badge>
-                              {criticalCount > 0 && (
-                                <Badge variant="destructive" className="text-xs">{criticalCount}</Badge>
-                              )}
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent className="pt-0 pb-2">
-                            <div className="space-y-1">
-                              {items.map((item) => {
-                                const status = getStockStatus(item);
-                                const isGranel = item.superCategory === 'DECORACION_GRANEL';
-                                return (
-                                  <div key={item.id} className="flex items-center gap-2 p-1.5 rounded bg-muted/30 text-sm">
-                                    <span className="font-medium flex-1 truncate">{item.name}</span>
-                                    <span className="text-primary font-semibold text-xs">{getCostDisplay(item)}</span>
-                                    {isGranel ? (
-                                      <Select
-                                        value={item.visualStatus}
-                                        onValueChange={(v) => updateInventoryItem(item.id, { visualStatus: v as VisualStockStatus })}
-                                      >
-                                        <SelectTrigger className="w-24 h-6 text-xs">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {visualStatusOptions.map((opt) => (
-                                            <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                                              {opt.label}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    ) : (
-                                      <>
-                                        <span className="text-xs text-muted-foreground">{getStockDisplay(item)}</span>
-                                        {getStatusBadge(status)}
-                                      </>
-                                    )}
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 text-destructive hover:text-destructive"
-                                      onClick={() => removeInventoryItem(item.id)}
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      );
-                    })}
-                  </Accordion>
+                  <div className="space-y-1">
+                    {topItems.map((item) => renderItemRow(item, true))}
+                  </div>
+                  
+                  {remainingCount > 0 && (
+                    <Button
+                      variant="ghost"
+                      className="w-full mt-2 text-xs h-8 text-muted-foreground hover:text-foreground"
+                      onClick={() => setExpandedCategory({ superCategory: superCat })}
+                    >
+                      <ChevronDown className="h-3 w-3 mr-1" />
+                      Ver {remainingCount} más
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             );
           })}
         </div>
 
+        {/* Expanded View Modal */}
+        <Dialog open={expandedCategory !== null} onOpenChange={(open) => !open && setExpandedCategory(null)}>
+          <DialogContent className="sm:max-w-2xl max-h-[80vh]">
+            {expandedCategory && (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <span className="text-xl">{superCategoryLabels[expandedCategory.superCategory].emoji}</span>
+                    {superCategoryLabels[expandedCategory.superCategory].label}
+                    <Badge variant="secondary" className="ml-2">
+                      {groupedBySuperCategory[expandedCategory.superCategory].length} items
+                    </Badge>
+                  </DialogTitle>
+                </DialogHeader>
+                <ScrollArea className="max-h-[60vh] pr-4">
+                  <div className="space-y-1.5">
+                    {groupedBySuperCategory[expandedCategory.superCategory].map((item) => renderItemRow(item))}
+                  </div>
+                </ScrollArea>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+
         {/* Legend */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in">
           <Info className="h-4 w-4" />
           <span>
-            Cada tipo de producto tiene su propia lógica de cálculo. 
+            Mostrando los 5 items más críticos por categoría. 
             <Link to="/extras" className="text-primary ml-1 hover:underline">
               Ver precios de extras →
             </Link>
