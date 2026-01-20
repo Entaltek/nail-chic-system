@@ -397,8 +397,8 @@ export default function GestionCategorias() {
           </div>
         </div>
 
-        {/* Categories by Super Category - 2 Columns */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Categories by Super Category - Dynamic columns */}
+        <div className={`grid gap-4 ${isAllSelected ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
           {filteredGroups.map(({ superCategory, info, categories }) => {
             if (categories.length === 0) return null;
             return (
