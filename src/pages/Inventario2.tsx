@@ -46,6 +46,7 @@ import {
   Settings,
   Eye,
   CircleDot,
+  Search,
 } from "lucide-react";
 import { 
   useBusinessConfig, 
@@ -75,6 +76,8 @@ export default function Inventario2() {
   const { inventory, inventoryCategories, addInventoryItem, updateInventoryItem, removeInventoryItem } = useBusinessConfig();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSuperCategories, setSelectedSuperCategories] = useState<Set<SuperCategoryType>>(new Set());
   
   // Dynamic form state based on category
   const [formData, setFormData] = useState({
@@ -96,6 +99,24 @@ export default function Inventario2() {
   });
 
   const selectedCategory = inventoryCategories.find(c => c.id === selectedCategoryId);
+
+  // Toggle super category filter
+  const toggleSuperCategoryFilter = (superCat: SuperCategoryType) => {
+    setSelectedSuperCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(superCat)) {
+        newSet.delete(superCat);
+      } else {
+        newSet.add(superCat);
+      }
+      return newSet;
+    });
+  };
+
+  const clearFilters = () => {
+    setSelectedSuperCategories(new Set());
+    setSearchTerm('');
+  };
 
   const resetForm = () => {
     setSelectedCategoryId('');
@@ -281,7 +302,7 @@ export default function Inventario2() {
     }
   };
 
-  // Group inventory by super category
+  // Group inventory by super category with filters
   const groupedBySuperCategory = useMemo(() => {
     const groups: Record<SuperCategoryType, { category: InventoryCategory; items: InventoryItem[] }[]> = {
       CONSUMIBLES_BASICOS: [],
@@ -292,12 +313,33 @@ export default function Inventario2() {
     };
 
     inventoryCategories.forEach(cat => {
-      const items = inventory.filter(item => item.categoryId === cat.id);
+      let items = inventory.filter(item => item.categoryId === cat.id);
+      
+      // Apply search filter
+      if (searchTerm) {
+        items = items.filter(item => 
+          item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.category?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+      
       groups[cat.superCategory].push({ category: cat, items });
     });
 
     return groups;
-  }, [inventory, inventoryCategories]);
+  }, [inventory, inventoryCategories, searchTerm]);
+
+  // Filter which super categories to show
+  const filteredGroups = useMemo(() => {
+    if (selectedSuperCategories.size === 0) {
+      return Object.entries(groupedBySuperCategory);
+    }
+    return Object.entries(groupedBySuperCategory).filter(([key]) => 
+      selectedSuperCategories.has(key as SuperCategoryType)
+    );
+  }, [groupedBySuperCategory, selectedSuperCategories]);
+
+  const isAllSelected = selectedSuperCategories.size === 0;
 
   // Stats
   const totalItems = inventory.length;
@@ -613,9 +655,52 @@ export default function Inventario2() {
           )}
         </div>
 
+        {/* Search and Filters */}
+        <div className="space-y-3 animate-fade-in">
+          {/* Search Input */}
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar producto..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          {/* Super Category Filter Badges */}
+          <div className="flex flex-wrap gap-2">
+            <Badge 
+              variant={isAllSelected ? "default" : "outline"} 
+              className="py-1.5 px-3 cursor-pointer hover:bg-primary/90 transition-colors"
+              onClick={clearFilters}
+            >
+              Todas
+            </Badge>
+            {Object.entries(superCategoryLabels).map(([key, info]) => {
+              const superCat = key as SuperCategoryType;
+              const isSelected = selectedSuperCategories.has(superCat);
+              const count = Object.values(groupedBySuperCategory[superCat] || [])
+                .reduce((sum, g) => sum + g.items.length, 0);
+              return (
+                <Badge 
+                  key={key} 
+                  variant={isSelected ? "default" : "outline"} 
+                  className="py-1.5 px-3 cursor-pointer hover:bg-primary/90 transition-colors gap-1"
+                  onClick={() => toggleSuperCategoryFilter(superCat)}
+                >
+                  <span>{info.emoji}</span>
+                  <span>{info.label}</span>
+                  <span className="ml-1 opacity-70">({count})</span>
+                </Badge>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Inventory by Super Category - 2 Columns */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {Object.entries(groupedBySuperCategory).map(([superCat, categoryGroups]) => {
+          {filteredGroups.map(([superCat, categoryGroups]) => {
             const info = superCategoryLabels[superCat as SuperCategoryType];
             const totalItems = categoryGroups.reduce((sum, g) => sum + g.items.length, 0);
             
