@@ -698,8 +698,8 @@ export default function Inventario2() {
           </div>
         </div>
 
-        {/* Inventory by Super Category - 2 Columns */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Inventory by Super Category - Dynamic columns */}
+        <div className={`grid gap-4 ${isAllSelected ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
           {filteredGroups.map(([superCat, categoryGroups]) => {
             const info = superCategoryLabels[superCat as SuperCategoryType];
             const totalItems = categoryGroups.reduce((sum, g) => sum + g.items.length, 0);
