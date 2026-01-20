@@ -196,7 +196,7 @@ export default function GestionCategorias() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 max-w-4xl">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -309,95 +309,64 @@ export default function GestionCategorias() {
           </Dialog>
         </div>
 
-        {/* Super Category Legend */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Info className="h-5 w-5 text-primary" />
-              Tipos de Inventario (Super Categorías)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Object.entries(superCategoryInfo).map(([key, info]) => (
-                <div key={key} className="p-3 rounded-lg bg-muted/50 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">{info.emoji}</span>
-                    <span className="font-medium">{info.label}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {info.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Super Category Legend - Compact */}
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(superCategoryInfo).map(([key, info]) => (
+            <Badge key={key} variant="outline" className="py-1 px-2 text-xs gap-1">
+              <span>{info.emoji}</span>
+              <span>{info.label}</span>
+            </Badge>
+          ))}
+        </div>
 
-        {/* Categories by Super Category */}
-        {groupedCategories.map(({ superCategory, info, categories }) => (
-          <Card key={superCategory}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">{info.emoji}</span>
-                <CardTitle className="text-lg">{info.label}</CardTitle>
-                <Badge variant="secondary">{categories.length} categorías</Badge>
-              </div>
-              <CardDescription>{info.description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {categories.length === 0 ? (
-                <p className="text-muted-foreground text-center py-4">
-                  No hay categorías en este tipo
-                </p>
-              ) : (
+        {/* Categories by Super Category - Compact */}
+        {groupedCategories.map(({ superCategory, info, categories }) => {
+          if (categories.length === 0) return null;
+          return (
+            <Card key={superCategory} className="overflow-hidden">
+              <CardHeader className="py-3 px-4 bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{info.emoji}</span>
+                  <CardTitle className="text-base">{info.label}</CardTitle>
+                  <Badge variant="secondary" className="text-xs">{categories.length}</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Categoría</TableHead>
-                      <TableHead>Descripción</TableHead>
-                      <TableHead className="text-center">Productos</TableHead>
-                      <TableHead className="w-[100px]"></TableHead>
+                      <TableHead className="pl-4">Categoría</TableHead>
+                      <TableHead className="hidden sm:table-cell">Descripción</TableHead>
+                      <TableHead className="text-center w-16">Items</TableHead>
+                      <TableHead className="w-20"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {categories.map((category) => {
                       const itemCount = getItemCount(category.id);
-
                       return (
                         <TableRow key={category.id}>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-lg ${category.color} flex items-center justify-center text-xl`}>
+                          <TableCell className="pl-4 py-2">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-7 h-7 rounded ${category.color} flex items-center justify-center text-sm`}>
                                 {category.icon}
                               </div>
-                              <span className="font-medium">{category.name}</span>
+                              <span className="font-medium text-sm">{category.name}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-muted-foreground max-w-[200px] truncate">
+                          <TableCell className="hidden sm:table-cell text-muted-foreground text-sm truncate max-w-[180px]">
                             {category.description}
                           </TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant="secondary">{itemCount}</Badge>
+                          <TableCell className="text-center py-2">
+                            <Badge variant="secondary" className="text-xs">{itemCount}</Badge>
                           </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => handleOpenDialog(category)}
-                              >
-                                <Pencil className="h-4 w-4" />
+                          <TableCell className="py-2">
+                            <div className="flex items-center gap-0.5">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenDialog(category)}>
+                                <Pencil className="h-3.5 w-3.5" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive hover:text-destructive"
-                                onClick={() => handleDelete(category)}
-                                disabled={itemCount > 0}
-                              >
-                                <Trash2 className="h-4 w-4" />
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(category)} disabled={itemCount > 0}>
+                                <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           </TableCell>
@@ -406,10 +375,10 @@ export default function GestionCategorias() {
                     })}
                   </TableBody>
                 </Table>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </MainLayout>
   );

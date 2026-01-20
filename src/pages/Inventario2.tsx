@@ -486,7 +486,7 @@ export default function Inventario2() {
 
   return (
     <MainLayout>
-      <div className="space-y-8">
+      <div className="space-y-4 max-w-4xl">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-fade-in">
           <div>
@@ -591,32 +591,26 @@ export default function Inventario2() {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 animate-fade-in">
-          <Card className="shadow-card">
-            <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">Total Productos</p>
-              <p className="text-2xl font-bold text-foreground">{totalItems}</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-card">
-            <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">Categorías</p>
-              <p className="text-2xl font-bold text-primary">{inventoryCategories.length}</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-card">
-            <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">Críticos/Urgentes</p>
-              <p className="text-2xl font-bold text-destructive">{criticalItems}</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-card">
-            <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">Granel para Comprar</p>
-              <p className="text-2xl font-bold text-amber-500">{lowGranelItems}</p>
-            </CardContent>
-          </Card>
+        {/* Stats Cards - Compact inline */}
+        <div className="flex flex-wrap gap-3 animate-fade-in">
+          <Badge variant="secondary" className="py-1.5 px-3 text-sm">
+            <Package className="h-3.5 w-3.5 mr-1.5" />
+            <span className="font-bold">{totalItems}</span> productos
+          </Badge>
+          <Badge variant="secondary" className="py-1.5 px-3 text-sm">
+            <span className="font-bold text-primary">{inventoryCategories.length}</span> categorías
+          </Badge>
+          {criticalItems > 0 && (
+            <Badge variant="destructive" className="py-1.5 px-3 text-sm">
+              <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
+              <span className="font-bold">{criticalItems}</span> críticos
+            </Badge>
+          )}
+          {lowGranelItems > 0 && (
+            <Badge className="bg-amber-500 text-white py-1.5 px-3 text-sm">
+              <span className="font-bold">{lowGranelItems}</span> granel bajo
+            </Badge>
+          )}
         </div>
 
         {/* Inventory by Super Category */}
