@@ -31,11 +31,19 @@ export interface TeamMember {
   isActive: boolean;
 }
 
+// Expense category types for reporting
+export type ExpenseCategoryType = 
+  | 'INFRAESTRUCTURA'    // Renta, Luz, Agua
+  | 'SUSCRIPCIONES'      // Software, Apps, Streaming
+  | 'EQUIPO_STAFF'       // Sueldos, Ayudantes, Limpieza
+  | 'OTROS';
+
 // Fixed expenses by category
 export interface FixedExpense {
   id: string;
   name: string;
-  category: string;
+  category: string; // Legacy display name
+  expenseType: ExpenseCategoryType;
   amount: number;
   budget: number;
 }
@@ -68,13 +76,29 @@ export interface ServiceDefinition {
   materialCost: number;
 }
 
-// Extra/Add-on for nail art (no stock, just pricing)
+// Extra type - TÉCNICA (no stock) or APLICACIÓN (linked to inventory)
+export type ExtraType = 'TECNICA' | 'APLICACION';
+
+// Extra/Add-on for nail art
 export interface ExtraItem {
   id: string;
   name: string;
-  category: string; // e.g., "Francés", "Nail Art", "Efectos"
+  type: ExtraType;
+  category: string; // e.g., "Francés", "Efectos", "Decoración"
   basePrice: number;
   extraMinutes: number;
+  description?: string;
+  // For APLICACION type - link to inventory
+  linkedInventoryId?: string;
+  linkedInventoryName?: string;
+}
+
+// Tiered pricing for nail art levels
+export interface NailArtTier {
+  id: string;
+  level: number;
+  name: string;
+  price: number;
   description?: string;
 }
 
@@ -166,8 +190,11 @@ interface BusinessConfigState {
   // Inventory
   inventory: InventoryItem[];
   
-  // Extras (Nail Art pricing - no stock)
+  // Extras (Nail Art pricing)
   extras: ExtraItem[];
+  
+  // Nail Art Tiers for quick POS pricing
+  nailArtTiers: NailArtTier[];
   
   // Services
   services: ServiceDefinition[];
@@ -206,6 +233,9 @@ interface BusinessConfigState {
   addExtra: (extra: Omit<ExtraItem, 'id'>) => void;
   updateExtra: (id: string, extra: Partial<ExtraItem>) => void;
   removeExtra: (id: string) => void;
+  
+  // Nail Art Tier actions
+  updateNailArtTier: (id: string, tier: Partial<NailArtTier>) => void;
   
   addService: (service: Omit<ServiceDefinition, 'id' | 'suggestedPrice' | 'materialCost'>) => void;
   updateService: (id: string, service: Partial<ServiceDefinition>) => void;
@@ -334,20 +364,27 @@ const defaultInventoryCategories: InventoryCategory[] = [
   },
 ];
 
-// Default extras (Nail Art pricing)
+// Default extras (Nail Art pricing) - now with types
 const defaultExtras: ExtraItem[] = [
-  { id: '1', name: 'Francés Clásico', category: 'Técnicas', basePrice: 50, extraMinutes: 10 },
-  { id: '2', name: 'Francés Baby Boomer', category: 'Técnicas', basePrice: 80, extraMinutes: 15 },
-  { id: '3', name: 'Encapsulado Simple', category: 'Técnicas', basePrice: 100, extraMinutes: 20 },
-  { id: '4', name: 'Encapsulado Complejo', category: 'Técnicas', basePrice: 150, extraMinutes: 30 },
-  { id: '5', name: 'Efecto Espejo', category: 'Efectos', basePrice: 80, extraMinutes: 10 },
-  { id: '6', name: 'Efecto Aurora', category: 'Efectos', basePrice: 80, extraMinutes: 10 },
-  { id: '7', name: 'Efecto Sirena', category: 'Efectos', basePrice: 60, extraMinutes: 8 },
-  { id: '8', name: 'Nail Art Simple (por uña)', category: 'Arte', basePrice: 20, extraMinutes: 5 },
-  { id: '9', name: 'Nail Art Complejo (por uña)', category: 'Arte', basePrice: 50, extraMinutes: 10 },
-  { id: '10', name: 'Cristales Swarovski (por pieza)', category: 'Decoración', basePrice: 5, extraMinutes: 1 },
-  { id: '11', name: 'Charm/Moño (por pieza)', category: 'Decoración', basePrice: 15, extraMinutes: 2 },
-  { id: '12', name: 'Foil (por uña)', category: 'Decoración', basePrice: 10, extraMinutes: 3 },
+  { id: '1', name: 'Francés Clásico', type: 'TECNICA', category: 'Técnicas', basePrice: 50, extraMinutes: 10 },
+  { id: '2', name: 'Francés Baby Boomer', type: 'TECNICA', category: 'Técnicas', basePrice: 80, extraMinutes: 15 },
+  { id: '3', name: 'Encapsulado Simple', type: 'TECNICA', category: 'Técnicas', basePrice: 100, extraMinutes: 20 },
+  { id: '4', name: 'Encapsulado Complejo', type: 'TECNICA', category: 'Técnicas', basePrice: 150, extraMinutes: 30 },
+  { id: '5', name: 'Efecto Espejo', type: 'TECNICA', category: 'Efectos', basePrice: 80, extraMinutes: 10 },
+  { id: '6', name: 'Efecto Aurora', type: 'TECNICA', category: 'Efectos', basePrice: 80, extraMinutes: 10 },
+  { id: '7', name: 'Efecto Sirena', type: 'TECNICA', category: 'Efectos', basePrice: 60, extraMinutes: 8 },
+  { id: '8', name: 'Nail Art Simple (por uña)', type: 'TECNICA', category: 'Arte', basePrice: 20, extraMinutes: 5 },
+  { id: '9', name: 'Nail Art Complejo (por uña)', type: 'TECNICA', category: 'Arte', basePrice: 50, extraMinutes: 10 },
+  { id: '10', name: 'Cristales Swarovski (por pieza)', type: 'APLICACION', category: 'Decoración', basePrice: 5, extraMinutes: 1 },
+  { id: '11', name: 'Charm/Moño (por pieza)', type: 'APLICACION', category: 'Decoración', basePrice: 15, extraMinutes: 2 },
+  { id: '12', name: 'Foil (por uña)', type: 'APLICACION', category: 'Decoración', basePrice: 10, extraMinutes: 3 },
+];
+
+// Default nail art tiers for quick POS pricing
+const defaultNailArtTiers: NailArtTier[] = [
+  { id: '1', level: 1, name: 'Básico', price: 10, description: 'Diseño simple, 1-2 elementos' },
+  { id: '2', level: 2, name: 'Intermedio', price: 35, description: 'Diseño elaborado, varios elementos' },
+  { id: '3', level: 3, name: 'Avanzado', price: 70, description: 'Diseño complejo, arte detallado' },
 ];
 
 const defaultSavingsBuckets: SavingsBucket[] = [
@@ -358,15 +395,15 @@ const defaultSavingsBuckets: SavingsBucket[] = [
 ];
 
 const seedFixedExpenses: FixedExpense[] = [
-  { id: '1', name: 'Renta', category: 'Local', amount: 3000, budget: 3000 },
-  { id: '2', name: 'Luz', category: 'Servicios', amount: 100, budget: 150 },
-  { id: '3', name: 'Agua', category: 'Servicios', amount: 100, budget: 100 },
-  { id: '4', name: 'Internet', category: 'Servicios', amount: 200, budget: 200 },
-  { id: '5', name: 'HBO', category: 'Entretenimiento', amount: 150, budget: 150 },
-  { id: '6', name: 'CapCut', category: 'Software', amount: 330, budget: 330 },
-  { id: '7', name: 'Software Entaltek', category: 'Software', amount: 450, budget: 450 },
-  { id: '8', name: 'Limpieza', category: 'Local', amount: 200, budget: 200 },
-  { id: '9', name: 'Daniela (Ayuda)', category: 'Personal', amount: 1200, budget: 1200 },
+  { id: '1', name: 'Renta', category: 'Local', expenseType: 'INFRAESTRUCTURA', amount: 3000, budget: 3000 },
+  { id: '2', name: 'Luz', category: 'Servicios', expenseType: 'INFRAESTRUCTURA', amount: 100, budget: 150 },
+  { id: '3', name: 'Agua', category: 'Servicios', expenseType: 'INFRAESTRUCTURA', amount: 100, budget: 100 },
+  { id: '4', name: 'Internet', category: 'Servicios', expenseType: 'INFRAESTRUCTURA', amount: 200, budget: 200 },
+  { id: '5', name: 'HBO', category: 'Entretenimiento', expenseType: 'SUSCRIPCIONES', amount: 150, budget: 150 },
+  { id: '6', name: 'CapCut', category: 'Software', expenseType: 'SUSCRIPCIONES', amount: 330, budget: 330 },
+  { id: '7', name: 'Software Entaltek', category: 'Software', expenseType: 'SUSCRIPCIONES', amount: 450, budget: 450 },
+  { id: '8', name: 'Limpieza', category: 'Local', expenseType: 'EQUIPO_STAFF', amount: 200, budget: 200 },
+  { id: '9', name: 'Daniela (Ayuda)', category: 'Personal', expenseType: 'EQUIPO_STAFF', amount: 1200, budget: 1200 },
 ];
 
 const defaultTeamMembers: TeamMember[] = [
@@ -505,6 +542,7 @@ export const useBusinessConfig = create<BusinessConfigState>()(
       inventoryCategories: defaultInventoryCategories,
       inventory: defaultInventory,
       extras: defaultExtras,
+      nailArtTiers: defaultNailArtTiers,
       services: defaultServices,
       serviceLogs: [],
       designs: [],
@@ -609,6 +647,11 @@ export const useBusinessConfig = create<BusinessConfigState>()(
       
       removeExtra: (id) => set((state) => ({
         extras: state.extras.filter((e) => e.id !== id),
+      })),
+      
+      // Nail Art Tier actions
+      updateNailArtTier: (id, tier) => set((state) => ({
+        nailArtTiers: state.nailArtTiers.map((t) => t.id === id ? { ...t, ...tier } : t),
       })),
       
       addService: (service) => set((state) => {
