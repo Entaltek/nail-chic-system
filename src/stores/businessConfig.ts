@@ -1,16 +1,24 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-// Wear types for inventory categories
-export type WearType = 'POR_UNIDAD' | 'POR_VOLUMEN' | 'POR_TIEMPO' | 'ADICIONAL';
+// Super Category Types - determines calculation logic
+export type SuperCategoryType = 
+  | 'CONSUMIBLES_BASICOS'    // Por Pieza - stock exacto (Int)
+  | 'QUIMICOS_GELES'         // Por Vol/Peso - calculadora de gota
+  | 'DECORACION_CONTABLE'    // Por Pieza - stock exacto
+  | 'DECORACION_GRANEL'      // Estado Visual - Lleno/Medio/Bajo
+  | 'EQUIPO_HERRAMIENTAS';   // Activos - depreciación mensual
+
+// Visual stock status for DECORACION_GRANEL
+export type VisualStockStatus = 'lleno' | 'medio' | 'bajo';
 
 // Inventory category with wear logic
 export interface InventoryCategory {
   id: string;
   name: string;
-  wearType: WearType;
+  superCategory: SuperCategoryType;
   description: string;
-  color: string; // Tailwind color class
+  color: string;
   icon: string;
 }
 
@@ -60,42 +68,49 @@ export interface ServiceDefinition {
   materialCost: number;
 }
 
-// Updated Inventory item with category reference
+// Extra/Add-on for nail art (no stock, just pricing)
+export interface ExtraItem {
+  id: string;
+  name: string;
+  category: string; // e.g., "Francés", "Nail Art", "Efectos"
+  basePrice: number;
+  extraMinutes: number;
+  description?: string;
+}
+
+// Updated Inventory item with super category reference
 export interface InventoryItem {
   id: string;
   name: string;
-  categoryId: string; // Reference to InventoryCategory
-  category: string; // Legacy - display name
+  categoryId: string;
+  category: string; // Display name
+  superCategory: SuperCategoryType;
   
   // Common fields
-  totalStock: number;
-  effectiveStock: number;
-  unit: string;
-  minStock: number;
   purchaseCost: number;
   
-  // POR_UNIDAD fields
-  piecesPerBox?: number;
+  // CONSUMIBLES_BASICOS & DECORACION_CONTABLE fields
+  stockPieces?: number;
+  minStockPieces?: number;
   costPerPiece?: number;
+  weeklyUsageRate?: number;
+  daysUntilEmpty?: number;
   
-  // POR_VOLUMEN fields
+  // QUIMICOS_GELES fields
   totalContent?: number; // ml or grams
   contentUnit?: 'ml' | 'g';
   estimatedUses?: number;
-  costPerUse: number;
+  currentStock?: number; // remaining ml/g
+  minStock?: number;
+  costPerUse?: number;
   
-  // POR_TIEMPO fields (Assets)
+  // DECORACION_GRANEL fields
+  visualStatus?: VisualStockStatus;
+  
+  // EQUIPO_HERRAMIENTAS fields
   purchaseDate?: string;
   usefulLifeMonths?: number;
   monthlyDepreciation?: number;
-  
-  // ADICIONAL fields
-  pricePerUnit?: number; // What to charge customer
-  
-  // Alert calculations
-  totalApplications: number;
-  weeklyUsageRate: number;
-  daysUntilEmpty: number;
 }
 
 // Service log for analytics
@@ -145,11 +160,14 @@ interface BusinessConfigState {
   teamMembers: TeamMember[];
   commissionBase: 'gross' | 'net';
   
-  // Inventory Categories (NEW)
+  // Inventory Categories
   inventoryCategories: InventoryCategory[];
   
   // Inventory
   inventory: InventoryItem[];
+  
+  // Extras (Nail Art pricing - no stock)
+  extras: ExtraItem[];
   
   // Services
   services: ServiceDefinition[];
@@ -174,14 +192,20 @@ interface BusinessConfigState {
   updateTeamMember: (id: string, member: Partial<TeamMember>) => void;
   removeTeamMember: (id: string) => void;
   
-  // Category actions (NEW)
+  // Category actions
   addInventoryCategory: (category: Omit<InventoryCategory, 'id'>) => void;
   updateInventoryCategory: (id: string, category: Partial<InventoryCategory>) => void;
   removeInventoryCategory: (id: string) => void;
   
-  addInventoryItem: (item: Omit<InventoryItem, 'id' | 'effectiveStock' | 'costPerUse' | 'daysUntilEmpty'>) => void;
+  // Inventory actions
+  addInventoryItem: (item: Omit<InventoryItem, 'id'>) => void;
   updateInventoryItem: (id: string, item: Partial<InventoryItem>) => void;
   removeInventoryItem: (id: string) => void;
+  
+  // Extra actions
+  addExtra: (extra: Omit<ExtraItem, 'id'>) => void;
+  updateExtra: (id: string, extra: Partial<ExtraItem>) => void;
+  removeExtra: (id: string) => void;
   
   addService: (service: Omit<ServiceDefinition, 'id' | 'suggestedPrice' | 'materialCost'>) => void;
   updateService: (id: string, service: Partial<ServiceDefinition>) => void;
@@ -205,56 +229,125 @@ interface BusinessConfigState {
   };
 }
 
-// Default inventory categories based on nail studio operations
+// Default inventory categories based on the new super category structure
 const defaultInventoryCategories: InventoryCategory[] = [
+  // CONSUMIBLES_BASICOS
   {
-    id: 'universales',
-    name: 'Insumos Universales',
-    wearType: 'POR_UNIDAD',
-    description: 'Material desechable que se usa en TODOS los servicios',
+    id: 'limas-pulidores',
+    name: 'Limas y Pulidores',
+    superCategory: 'CONSUMIBLES_BASICOS',
+    description: 'Limas, buffers, pulidores desechables',
     color: 'bg-blue-500',
-    icon: '🧤',
+    icon: '📏',
   },
   {
-    id: 'quimicos-acrilico',
-    name: 'Químicos Acrílico',
-    wearType: 'POR_VOLUMEN',
-    description: 'Insumos exclusivos para aplicación de uñas acrílicas',
-    color: 'bg-pink-500',
+    id: 'tips-moldes',
+    name: 'Tips y Moldes',
+    superCategory: 'CONSUMIBLES_BASICOS',
+    description: 'Tips Soft Gel, moldes, formas',
+    color: 'bg-blue-400',
     icon: '💅',
   },
   {
-    id: 'geles-esmaltes',
-    name: 'Geles y Esmaltes',
-    wearType: 'POR_VOLUMEN',
-    description: 'Insumos para Gel Semi, Rubber, Soft Gel',
+    id: 'desechables',
+    name: 'Desechables',
+    superCategory: 'CONSUMIBLES_BASICOS',
+    description: 'Guantes, servitoallas, cubrebocas',
+    color: 'bg-blue-300',
+    icon: '🧤',
+  },
+  // QUIMICOS_GELES
+  {
+    id: 'acrilicos',
+    name: 'Acrílicos',
+    superCategory: 'QUIMICOS_GELES',
+    description: 'Monómero, polvo acrílico, primer',
     color: 'bg-purple-500',
+    icon: '🧪',
+  },
+  {
+    id: 'geles',
+    name: 'Geles y Rubber',
+    superCategory: 'QUIMICOS_GELES',
+    description: 'Base coat, top coat, rubber base, gel color',
+    color: 'bg-purple-400',
     icon: '✨',
+  },
+  {
+    id: 'liquidos',
+    name: 'Líquidos y Solventes',
+    superCategory: 'QUIMICOS_GELES',
+    description: 'Acetona, alcohol, removedor',
+    color: 'bg-purple-300',
+    icon: '💧',
   },
   {
     id: 'spa-pedicura',
     name: 'Spa y Pedicura',
-    wearType: 'POR_VOLUMEN',
-    description: 'Productos de consumo masivo para pies',
+    superCategory: 'QUIMICOS_GELES',
+    description: 'Sales, jelly spa, exfoliantes, cremas',
     color: 'bg-teal-500',
     icon: '🦶',
   },
+  // DECORACION_CONTABLE
   {
-    id: 'herramientas-equipo',
-    name: 'Herramientas y Equipo',
-    wearType: 'POR_TIEMPO',
-    description: 'Activos que se desgastan por meses, no por cliente',
+    id: 'charms-accesorios',
+    name: 'Charms y Accesorios',
+    superCategory: 'DECORACION_CONTABLE',
+    description: 'Charms, moños, stickers, cristales grandes',
+    color: 'bg-pink-500',
+    icon: '🎀',
+  },
+  // DECORACION_GRANEL
+  {
+    id: 'efectos-polvo',
+    name: 'Efectos y Polvos',
+    superCategory: 'DECORACION_GRANEL',
+    description: 'Glitter, efecto espejo, aurora, naturaleza muerta',
+    color: 'bg-rose-400',
+    icon: '🌟',
+  },
+  {
+    id: 'foils-laminas',
+    name: 'Foils y Láminas',
+    superCategory: 'DECORACION_GRANEL',
+    description: 'Foil transfer, papel de arroz, láminas',
+    color: 'bg-rose-300',
+    icon: '🎨',
+  },
+  // EQUIPO_HERRAMIENTAS
+  {
+    id: 'equipo-electrico',
+    name: 'Equipo Eléctrico',
+    superCategory: 'EQUIPO_HERRAMIENTAS',
+    description: 'Drill, lámpara UV/LED, aspiradora',
     color: 'bg-amber-500',
+    icon: '🔌',
+  },
+  {
+    id: 'herramientas',
+    name: 'Herramientas',
+    superCategory: 'EQUIPO_HERRAMIENTAS',
+    description: 'Pinceles, cortaúñas, espátulas',
+    color: 'bg-amber-400',
     icon: '🔧',
   },
-  {
-    id: 'decoracion-arte',
-    name: 'Decoración y Arte',
-    wearType: 'ADICIONAL',
-    description: 'Elementos creativos con precio variable o unitario alto',
-    color: 'bg-rose-500',
-    icon: '💎',
-  },
+];
+
+// Default extras (Nail Art pricing)
+const defaultExtras: ExtraItem[] = [
+  { id: '1', name: 'Francés Clásico', category: 'Técnicas', basePrice: 50, extraMinutes: 10 },
+  { id: '2', name: 'Francés Baby Boomer', category: 'Técnicas', basePrice: 80, extraMinutes: 15 },
+  { id: '3', name: 'Encapsulado Simple', category: 'Técnicas', basePrice: 100, extraMinutes: 20 },
+  { id: '4', name: 'Encapsulado Complejo', category: 'Técnicas', basePrice: 150, extraMinutes: 30 },
+  { id: '5', name: 'Efecto Espejo', category: 'Efectos', basePrice: 80, extraMinutes: 10 },
+  { id: '6', name: 'Efecto Aurora', category: 'Efectos', basePrice: 80, extraMinutes: 10 },
+  { id: '7', name: 'Efecto Sirena', category: 'Efectos', basePrice: 60, extraMinutes: 8 },
+  { id: '8', name: 'Nail Art Simple (por uña)', category: 'Arte', basePrice: 20, extraMinutes: 5 },
+  { id: '9', name: 'Nail Art Complejo (por uña)', category: 'Arte', basePrice: 50, extraMinutes: 10 },
+  { id: '10', name: 'Cristales Swarovski (por pieza)', category: 'Decoración', basePrice: 5, extraMinutes: 1 },
+  { id: '11', name: 'Charm/Moño (por pieza)', category: 'Decoración', basePrice: 15, extraMinutes: 2 },
+  { id: '12', name: 'Foil (por uña)', category: 'Decoración', basePrice: 10, extraMinutes: 3 },
 ];
 
 const defaultSavingsBuckets: SavingsBucket[] = [
@@ -281,110 +374,106 @@ const defaultTeamMembers: TeamMember[] = [
 ];
 
 const defaultInventory: InventoryItem[] = [
+  // CONSUMIBLES_BASICOS examples
   {
     id: '1',
-    name: 'Monómero Acrílico',
-    categoryId: 'quimicos-acrilico',
-    category: 'Químicos Acrílico',
-    totalStock: 500,
-    effectiveStock: 425,
-    unit: 'ml',
-    minStock: 100,
-    purchaseCost: 500,
-    totalContent: 500,
-    contentUnit: 'ml',
-    estimatedUses: 100,
-    totalApplications: 100,
-    costPerUse: 5,
-    weeklyUsageRate: 20,
-    daysUntilEmpty: 21,
+    name: 'Guantes Nitrilo (Caja 100)',
+    categoryId: 'desechables',
+    category: 'Desechables',
+    superCategory: 'CONSUMIBLES_BASICOS',
+    purchaseCost: 200,
+    stockPieces: 85,
+    minStockPieces: 20,
+    costPerPiece: 2,
+    weeklyUsageRate: 25,
+    daysUntilEmpty: 24,
   },
   {
     id: '2',
-    name: 'Rubber Base',
-    categoryId: 'geles-esmaltes',
-    category: 'Geles y Esmaltes',
-    totalStock: 30,
-    effectiveStock: 25.5,
-    unit: 'ml',
-    minStock: 10,
-    purchaseCost: 350,
-    totalContent: 30,
-    contentUnit: 'ml',
-    estimatedUses: 30,
-    totalApplications: 30,
-    costPerUse: 11.67,
+    name: 'Lima 100/180',
+    categoryId: 'limas-pulidores',
+    category: 'Limas y Pulidores',
+    superCategory: 'CONSUMIBLES_BASICOS',
+    purchaseCost: 150,
+    stockPieces: 50,
+    minStockPieces: 10,
+    costPerPiece: 3,
     weeklyUsageRate: 15,
-    daysUntilEmpty: 12,
+    daysUntilEmpty: 23,
   },
+  // QUIMICOS_GELES examples
   {
     id: '3',
-    name: 'Polvo Acrílico Rosa',
-    categoryId: 'quimicos-acrilico',
-    category: 'Químicos Acrílico',
-    totalStock: 200,
-    effectiveStock: 170,
-    unit: 'g',
-    minStock: 50,
-    purchaseCost: 280,
-    totalContent: 200,
-    contentUnit: 'g',
-    estimatedUses: 80,
-    totalApplications: 80,
-    costPerUse: 3.5,
-    weeklyUsageRate: 18,
-    daysUntilEmpty: 28,
+    name: 'Monómero Acrílico',
+    categoryId: 'acrilicos',
+    category: 'Acrílicos',
+    superCategory: 'QUIMICOS_GELES',
+    purchaseCost: 500,
+    totalContent: 500,
+    contentUnit: 'ml',
+    currentStock: 425,
+    minStock: 100,
+    estimatedUses: 100,
+    costPerUse: 5,
   },
   {
     id: '4',
-    name: 'Top Coat Sin Capa',
-    categoryId: 'geles-esmaltes',
-    category: 'Geles y Esmaltes',
-    totalStock: 30,
-    effectiveStock: 25.5,
-    unit: 'ml',
-    minStock: 10,
-    purchaseCost: 250,
+    name: 'Rubber Base',
+    categoryId: 'geles',
+    category: 'Geles y Rubber',
+    superCategory: 'QUIMICOS_GELES',
+    purchaseCost: 350,
     totalContent: 30,
     contentUnit: 'ml',
-    estimatedUses: 50,
-    totalApplications: 50,
-    costPerUse: 5,
-    weeklyUsageRate: 25,
-    daysUntilEmpty: 7,
+    currentStock: 25,
+    minStock: 10,
+    estimatedUses: 30,
+    costPerUse: 11.67,
   },
+  // DECORACION_CONTABLE example
   {
     id: '5',
-    name: 'Pedrería Swarovski',
-    categoryId: 'decoracion-arte',
-    category: 'Decoración y Arte',
-    totalStock: 500,
-    effectiveStock: 425,
-    unit: 'piezas',
-    minStock: 100,
+    name: 'Cristales Swarovski Mix',
+    categoryId: 'charms-accesorios',
+    category: 'Charms y Accesorios',
+    superCategory: 'DECORACION_CONTABLE',
     purchaseCost: 400,
-    pricePerUnit: 5,
-    totalApplications: 500,
-    costPerUse: 0.8,
+    stockPieces: 425,
+    minStockPieces: 100,
+    costPerPiece: 0.8,
     weeklyUsageRate: 30,
     daysUntilEmpty: 99,
   },
+  // DECORACION_GRANEL example
   {
     id: '6',
-    name: 'Guantes Nitrilo',
-    categoryId: 'universales',
-    category: 'Insumos Universales',
-    totalStock: 100,
-    effectiveStock: 85,
-    unit: 'pares',
-    minStock: 20,
-    purchaseCost: 200,
-    piecesPerBox: 100,
-    costPerPiece: 2,
-    totalApplications: 100,
-    costPerUse: 2,
-    weeklyUsageRate: 25,
-    daysUntilEmpty: 24,
+    name: 'Glitter Holográfico',
+    categoryId: 'efectos-polvo',
+    category: 'Efectos y Polvos',
+    superCategory: 'DECORACION_GRANEL',
+    purchaseCost: 120,
+    visualStatus: 'lleno',
+  },
+  {
+    id: '7',
+    name: 'Efecto Espejo Plata',
+    categoryId: 'efectos-polvo',
+    category: 'Efectos y Polvos',
+    superCategory: 'DECORACION_GRANEL',
+    purchaseCost: 180,
+    visualStatus: 'medio',
+  },
+  // EQUIPO_HERRAMIENTAS example
+  {
+    id: '8',
+    name: 'Drill Profesional',
+    categoryId: 'equipo-electrico',
+    category: 'Equipo Eléctrico',
+    superCategory: 'EQUIPO_HERRAMIENTAS',
+    purchaseCost: 2500,
+    purchaseDate: '2024-06-01',
+    usefulLifeMonths: 24,
+    monthlyDepreciation: 104.17,
   },
 ];
 
@@ -415,6 +504,7 @@ export const useBusinessConfig = create<BusinessConfigState>()(
       
       inventoryCategories: defaultInventoryCategories,
       inventory: defaultInventory,
+      extras: defaultExtras,
       services: defaultServices,
       serviceLogs: [],
       designs: [],
@@ -495,82 +585,39 @@ export const useBusinessConfig = create<BusinessConfigState>()(
         inventoryCategories: state.inventoryCategories.filter((c) => c.id !== id),
       })),
       
-      addInventoryItem: (item) => set((state) => {
-        const category = state.inventoryCategories.find(c => c.id === item.categoryId);
-        let costPerUse = 0;
-        let effectiveStock = item.totalStock * 0.85;
-        
-        if (category) {
-          switch (category.wearType) {
-            case 'POR_UNIDAD':
-              costPerUse = item.costPerPiece || (item.purchaseCost / (item.piecesPerBox || item.totalApplications));
-              break;
-            case 'POR_VOLUMEN':
-              costPerUse = item.purchaseCost / (item.estimatedUses || item.totalApplications);
-              break;
-            case 'POR_TIEMPO':
-              // Monthly depreciation, not per-use cost
-              costPerUse = item.purchaseCost / (item.usefulLifeMonths || 12);
-              break;
-            case 'ADICIONAL':
-              costPerUse = item.purchaseCost / item.totalApplications;
-              break;
-          }
-        } else {
-          costPerUse = item.purchaseCost / item.totalApplications;
-        }
-        
-        const daysUntilEmpty = item.weeklyUsageRate > 0 
-          ? Math.floor((effectiveStock / item.weeklyUsageRate) * 7)
-          : 999;
-        
-        return {
-          inventory: [...state.inventory, {
-            ...item,
-            id: Date.now().toString(),
-            effectiveStock,
-            costPerUse,
-            daysUntilEmpty,
-          }],
-        };
-      }),
+      // Inventory actions
+      addInventoryItem: (item) => set((state) => ({
+        inventory: [...state.inventory, { ...item, id: Date.now().toString() }],
+      })),
       
       updateInventoryItem: (id, item) => set((state) => ({
-        inventory: state.inventory.map((i) => {
-          if (i.id !== id) return i;
-          const updated = { ...i, ...item };
-          
-          if (item.totalStock !== undefined) {
-            updated.effectiveStock = updated.totalStock * 0.85;
-          }
-          if (item.purchaseCost !== undefined || item.totalApplications !== undefined) {
-            updated.costPerUse = updated.purchaseCost / updated.totalApplications;
-          }
-          if (item.weeklyUsageRate !== undefined || item.totalStock !== undefined) {
-            updated.daysUntilEmpty = updated.weeklyUsageRate > 0 
-              ? Math.floor((updated.effectiveStock / updated.weeklyUsageRate) * 7)
-              : 999;
-          }
-          
-          return updated;
-        }),
+        inventory: state.inventory.map((i) => i.id === id ? { ...i, ...item } : i),
       })),
       
       removeInventoryItem: (id) => set((state) => ({
         inventory: state.inventory.filter((i) => i.id !== id),
       })),
       
+      // Extra actions
+      addExtra: (extra) => set((state) => ({
+        extras: [...state.extras, { ...extra, id: Date.now().toString() }],
+      })),
+      
+      updateExtra: (id, extra) => set((state) => ({
+        extras: state.extras.map((e) => e.id === id ? { ...e, ...extra } : e),
+      })),
+      
+      removeExtra: (id) => set((state) => ({
+        extras: state.extras.filter((e) => e.id !== id),
+      })),
+      
       addService: (service) => set((state) => {
         const timeCost = service.estimatedMinutes * state.costPerMinute;
-        const suggestedPrice = Math.ceil((timeCost + service.recipe.reduce((sum, r) => {
-          const material = state.inventory.find((i) => i.id === r.materialId);
-          return sum + (material ? material.costPerUse * r.usageAmount : 0);
-        }, 0)) / 10) * 10;
-        
         const materialCost = service.recipe.reduce((sum, r) => {
           const material = state.inventory.find((i) => i.id === r.materialId);
-          return sum + (material ? material.costPerUse * r.usageAmount : 0);
+          return sum + (material?.costPerUse ? material.costPerUse * r.usageAmount : 0);
         }, 0);
+        const suggestedPrice = Math.ceil((timeCost + materialCost) / 10) * 10;
         
         return {
           services: [...state.services, {
@@ -659,7 +706,7 @@ export const useBusinessConfig = create<BusinessConfigState>()(
     }),
     {
       name: 'business-config-storage',
-      version: 2,
+      version: 3,
     }
   )
 );

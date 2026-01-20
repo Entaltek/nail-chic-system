@@ -8,12 +8,12 @@ import ServicioEnCurso from "./pages/ServicioEnCurso";
 import MenuServicios from "./pages/MenuServicios";
 import Inventario2 from "./pages/Inventario2";
 import GestionCategorias from "./pages/GestionCategorias";
+import ExtrasPrecios from "./pages/ExtrasPrecios";
 import CatalogoDisenos from "./pages/CatalogoDisenos";
 import Reportes from "./pages/Reportes";
 import ConfiguracionMaestra from "./pages/ConfiguracionMaestra";
 import CostosGastos from "./pages/CostosGastos";
 import NotFound from "./pages/NotFound";
-
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -28,6 +28,7 @@ const App = () => (
           <Route path="/menu-servicios" element={<MenuServicios />} />
           <Route path="/inventario" element={<Inventario2 />} />
           <Route path="/gestion-categorias" element={<GestionCategorias />} />
+          <Route path="/extras" element={<ExtrasPrecios />} />
           <Route path="/catalogo" element={<CatalogoDisenos />} />
           <Route path="/reportes" element={<Reportes />} />
           <Route path="/configuracion" element={<ConfiguracionMaestra />} />

@@ -3,7 +3,6 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -45,41 +44,55 @@ import {
   Box,
   Sparkles,
   Settings,
+  Eye,
+  CircleDot,
 } from "lucide-react";
-import { useBusinessConfig, InventoryItem, InventoryCategory, WearType } from "@/stores/businessConfig";
+import { 
+  useBusinessConfig, 
+  InventoryItem, 
+  InventoryCategory, 
+  SuperCategoryType,
+  VisualStockStatus 
+} from "@/stores/businessConfig";
 import { toast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 
-const wearTypeLabels: Record<WearType, string> = {
-  POR_UNIDAD: 'Por Unidad',
-  POR_VOLUMEN: 'Por Volumen',
-  POR_TIEMPO: 'Por Tiempo (Depreciación)',
-  ADICIONAL: 'Adicional (Arte/Decoración)',
+const superCategoryLabels: Record<SuperCategoryType, { label: string; emoji: string }> = {
+  CONSUMIBLES_BASICOS: { label: 'Consumibles Básicos', emoji: '🔵' },
+  QUIMICOS_GELES: { label: 'Químicos y Geles', emoji: '🟣' },
+  DECORACION_CONTABLE: { label: 'Decoración Contable', emoji: '✨' },
+  DECORACION_GRANEL: { label: 'Decoración a Granel', emoji: '🎨' },
+  EQUIPO_HERRAMIENTAS: { label: 'Equipo y Herramientas', emoji: '🛠' },
 };
 
+const visualStatusOptions: { value: VisualStockStatus; label: string; color: string }[] = [
+  { value: 'lleno', label: '🟢 Lleno', color: 'bg-green-500' },
+  { value: 'medio', label: '🟡 Medio', color: 'bg-yellow-500' },
+  { value: 'bajo', label: '🔴 Bajo (Comprar)', color: 'bg-red-500' },
+];
+
 export default function Inventario2() {
-  const { inventory, inventoryCategories, addInventoryItem, removeInventoryItem } = useBusinessConfig();
+  const { inventory, inventoryCategories, addInventoryItem, updateInventoryItem, removeInventoryItem } = useBusinessConfig();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   
   // Dynamic form state based on category
   const [formData, setFormData] = useState({
     name: '',
-    // Common
     purchaseCost: '',
+    // CONSUMIBLES_BASICOS & DECORACION_CONTABLE
+    stockPieces: '',
+    minStockPieces: '',
     weeklyUsageRate: '',
-    // POR_UNIDAD
-    piecesPerBox: '',
-    // POR_VOLUMEN
+    // QUIMICOS_GELES
     totalContent: '',
     contentUnit: 'ml' as 'ml' | 'g',
     estimatedUses: '',
-    // POR_TIEMPO
+    // DECORACION_GRANEL
+    visualStatus: 'lleno' as VisualStockStatus,
+    // EQUIPO_HERRAMIENTAS
     purchaseDate: '',
     usefulLifeMonths: '',
-    // ADICIONAL
-    pricePerUnit: '',
-    totalPieces: '',
   });
 
   const selectedCategory = inventoryCategories.find(c => c.id === selectedCategoryId);
@@ -89,15 +102,15 @@ export default function Inventario2() {
     setFormData({
       name: '',
       purchaseCost: '',
+      stockPieces: '',
+      minStockPieces: '',
       weeklyUsageRate: '',
-      piecesPerBox: '',
       totalContent: '',
       contentUnit: 'ml',
       estimatedUses: '',
+      visualStatus: 'lleno',
       purchaseDate: '',
       usefulLifeMonths: '',
-      pricePerUnit: '',
-      totalPieces: '',
     });
   };
 
@@ -114,64 +127,67 @@ export default function Inventario2() {
     const category = inventoryCategories.find(c => c.id === selectedCategoryId);
     if (!category) return;
 
-    let totalStock = 0;
-    let unit = '';
-    let totalApplications = 0;
-    let minStock = 0;
-
-    switch (category.wearType) {
-      case 'POR_UNIDAD':
-        totalStock = parseFloat(formData.piecesPerBox) || 100;
-        unit = 'piezas';
-        totalApplications = totalStock;
-        minStock = totalStock * 0.2;
-        break;
-      case 'POR_VOLUMEN':
-        totalStock = parseFloat(formData.totalContent) || 100;
-        unit = formData.contentUnit;
-        totalApplications = parseFloat(formData.estimatedUses) || 50;
-        minStock = totalStock * 0.2;
-        break;
-      case 'POR_TIEMPO':
-        totalStock = 1;
-        unit = 'unidad';
-        totalApplications = parseFloat(formData.usefulLifeMonths) || 12;
-        minStock = 0;
-        break;
-      case 'ADICIONAL':
-        totalStock = parseFloat(formData.totalPieces) || 100;
-        unit = 'piezas';
-        totalApplications = totalStock;
-        minStock = totalStock * 0.1;
-        break;
-    }
-
-    addInventoryItem({
+    const baseItem = {
       name: formData.name,
       categoryId: selectedCategoryId,
       category: category.name,
-      totalStock,
-      unit,
-      minStock,
+      superCategory: category.superCategory,
       purchaseCost: parseFloat(formData.purchaseCost),
-      totalApplications,
-      weeklyUsageRate: parseFloat(formData.weeklyUsageRate) || 10,
-      // Specific fields
-      piecesPerBox: parseFloat(formData.piecesPerBox) || undefined,
-      costPerPiece: category.wearType === 'POR_UNIDAD' 
-        ? parseFloat(formData.purchaseCost) / (parseFloat(formData.piecesPerBox) || 1) 
-        : undefined,
-      totalContent: parseFloat(formData.totalContent) || undefined,
-      contentUnit: formData.contentUnit,
-      estimatedUses: parseFloat(formData.estimatedUses) || undefined,
-      purchaseDate: formData.purchaseDate || undefined,
-      usefulLifeMonths: parseFloat(formData.usefulLifeMonths) || undefined,
-      monthlyDepreciation: category.wearType === 'POR_TIEMPO'
-        ? parseFloat(formData.purchaseCost) / (parseFloat(formData.usefulLifeMonths) || 12)
-        : undefined,
-      pricePerUnit: parseFloat(formData.pricePerUnit) || undefined,
-    });
+    };
 
+    let newItem: Omit<InventoryItem, 'id'>;
+
+    switch (category.superCategory) {
+      case 'CONSUMIBLES_BASICOS':
+      case 'DECORACION_CONTABLE': {
+        const stockPieces = parseFloat(formData.stockPieces) || 100;
+        const costPerPiece = parseFloat(formData.purchaseCost) / stockPieces;
+        const weeklyUsage = parseFloat(formData.weeklyUsageRate) || 10;
+        newItem = {
+          ...baseItem,
+          stockPieces,
+          minStockPieces: parseFloat(formData.minStockPieces) || stockPieces * 0.2,
+          costPerPiece,
+          weeklyUsageRate: weeklyUsage,
+          daysUntilEmpty: Math.floor((stockPieces / weeklyUsage) * 7),
+        };
+        break;
+      }
+      case 'QUIMICOS_GELES': {
+        const totalContent = parseFloat(formData.totalContent) || 100;
+        const estimatedUses = parseFloat(formData.estimatedUses) || 50;
+        newItem = {
+          ...baseItem,
+          totalContent,
+          contentUnit: formData.contentUnit,
+          currentStock: totalContent,
+          minStock: totalContent * 0.2,
+          estimatedUses,
+          costPerUse: parseFloat(formData.purchaseCost) / estimatedUses,
+        };
+        break;
+      }
+      case 'DECORACION_GRANEL':
+        newItem = {
+          ...baseItem,
+          visualStatus: formData.visualStatus,
+        };
+        break;
+      case 'EQUIPO_HERRAMIENTAS': {
+        const usefulLifeMonths = parseFloat(formData.usefulLifeMonths) || 12;
+        newItem = {
+          ...baseItem,
+          purchaseDate: formData.purchaseDate || new Date().toISOString().split('T')[0],
+          usefulLifeMonths,
+          monthlyDepreciation: parseFloat(formData.purchaseCost) / usefulLifeMonths,
+        };
+        break;
+      }
+      default:
+        newItem = baseItem;
+    }
+
+    addInventoryItem(newItem);
     setIsDialogOpen(false);
     resetForm();
 
@@ -181,29 +197,30 @@ export default function Inventario2() {
     });
   };
 
-  // Calculate cost display based on category type
-  const getCostDisplay = (item: InventoryItem, category?: InventoryCategory) => {
-    if (!category) return `$${item.costPerUse.toFixed(2)}/uso`;
-    
-    switch (category.wearType) {
-      case 'POR_UNIDAD':
-        return `$${(item.costPerPiece || item.costPerUse).toFixed(2)}/pieza`;
-      case 'POR_VOLUMEN':
-        return `$${item.costPerUse.toFixed(2)}/uso`;
-      case 'POR_TIEMPO':
-        return `$${(item.monthlyDepreciation || item.costPerUse).toFixed(2)}/mes`;
-      case 'ADICIONAL':
-        return item.pricePerUnit ? `Cobrar $${item.pricePerUnit}/pieza` : `$${item.costPerUse.toFixed(2)}/uso`;
-      default:
-        return `$${item.costPerUse.toFixed(2)}/uso`;
-    }
-  };
-
+  // Get status for different category types
   const getStockStatus = (item: InventoryItem) => {
-    if (item.effectiveStock <= item.minStock) return "critical";
-    if (item.daysUntilEmpty <= 7) return "urgent";
-    if (item.daysUntilEmpty <= 14) return "low";
-    return "ok";
+    switch (item.superCategory) {
+      case 'CONSUMIBLES_BASICOS':
+      case 'DECORACION_CONTABLE':
+        if (!item.stockPieces || !item.minStockPieces) return 'ok';
+        if (item.stockPieces <= item.minStockPieces) return 'critical';
+        if (item.daysUntilEmpty && item.daysUntilEmpty <= 7) return 'urgent';
+        if (item.daysUntilEmpty && item.daysUntilEmpty <= 14) return 'low';
+        return 'ok';
+      case 'QUIMICOS_GELES':
+        if (!item.currentStock || !item.minStock) return 'ok';
+        if (item.currentStock <= item.minStock) return 'critical';
+        if (item.currentStock <= item.minStock * 1.5) return 'low';
+        return 'ok';
+      case 'DECORACION_GRANEL':
+        if (item.visualStatus === 'bajo') return 'critical';
+        if (item.visualStatus === 'medio') return 'low';
+        return 'ok';
+      case 'EQUIPO_HERRAMIENTAS':
+        return 'ok'; // Assets don't have stock alerts
+      default:
+        return 'ok';
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -219,75 +236,136 @@ export default function Inventario2() {
     }
   };
 
-  // Group inventory by category
-  const groupedInventory = useMemo(() => {
-    const groups: Record<string, InventoryItem[]> = {};
-    
-    inventoryCategories.forEach(cat => {
-      groups[cat.id] = inventory.filter(item => item.categoryId === cat.id);
-    });
-    
-    // Items without valid category
-    const uncategorized = inventory.filter(item => 
-      !inventoryCategories.find(c => c.id === item.categoryId)
-    );
-    if (uncategorized.length > 0) {
-      groups['uncategorized'] = uncategorized;
+  // Get visual status badge for DECORACION_GRANEL
+  const getVisualStatusBadge = (status: VisualStockStatus) => {
+    switch (status) {
+      case 'lleno':
+        return <Badge className="bg-green-500 text-white gap-1"><CircleDot className="h-3 w-3" />Lleno</Badge>;
+      case 'medio':
+        return <Badge className="bg-yellow-500 text-white gap-1"><CircleDot className="h-3 w-3" />Medio</Badge>;
+      case 'bajo':
+        return <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />¡Comprar!</Badge>;
     }
-    
+  };
+
+  // Get display info based on category type
+  const getCostDisplay = (item: InventoryItem) => {
+    switch (item.superCategory) {
+      case 'CONSUMIBLES_BASICOS':
+      case 'DECORACION_CONTABLE':
+        return `$${(item.costPerPiece || 0).toFixed(2)}/pieza`;
+      case 'QUIMICOS_GELES':
+        return `$${(item.costPerUse || 0).toFixed(2)}/uso`;
+      case 'DECORACION_GRANEL':
+        return `$${item.purchaseCost.toFixed(0)} total`;
+      case 'EQUIPO_HERRAMIENTAS':
+        return `$${(item.monthlyDepreciation || 0).toFixed(2)}/mes`;
+      default:
+        return '-';
+    }
+  };
+
+  const getStockDisplay = (item: InventoryItem) => {
+    switch (item.superCategory) {
+      case 'CONSUMIBLES_BASICOS':
+      case 'DECORACION_CONTABLE':
+        return `${item.stockPieces || 0} piezas`;
+      case 'QUIMICOS_GELES':
+        return `${item.currentStock || 0} ${item.contentUnit || 'ml'}`;
+      case 'DECORACION_GRANEL':
+        return '-';
+      case 'EQUIPO_HERRAMIENTAS':
+        return `${item.usefulLifeMonths || 0} meses vida útil`;
+      default:
+        return '-';
+    }
+  };
+
+  // Group inventory by super category
+  const groupedBySuperCategory = useMemo(() => {
+    const groups: Record<SuperCategoryType, { category: InventoryCategory; items: InventoryItem[] }[]> = {
+      CONSUMIBLES_BASICOS: [],
+      QUIMICOS_GELES: [],
+      DECORACION_CONTABLE: [],
+      DECORACION_GRANEL: [],
+      EQUIPO_HERRAMIENTAS: [],
+    };
+
+    inventoryCategories.forEach(cat => {
+      const items = inventory.filter(item => item.categoryId === cat.id);
+      groups[cat.superCategory].push({ category: cat, items });
+    });
+
     return groups;
   }, [inventory, inventoryCategories]);
 
   // Stats
   const totalItems = inventory.length;
-  const criticalItems = inventory.filter((i) => getStockStatus(i) === "critical" || getStockStatus(i) === "urgent").length;
-  const avgCostPerUse = inventory.length > 0
-    ? inventory.reduce((sum, i) => sum + i.costPerUse, 0) / inventory.length
-    : 0;
-
-  // Smart alerts
-  const urgentAlerts = inventory
-    .filter((i) => i.daysUntilEmpty <= 7 && i.daysUntilEmpty > 0)
-    .sort((a, b) => a.daysUntilEmpty - b.daysUntilEmpty);
+  const criticalItems = inventory.filter((i) => {
+    const status = getStockStatus(i);
+    return status === 'critical' || status === 'urgent';
+  }).length;
+  const lowGranelItems = inventory.filter(i => i.superCategory === 'DECORACION_GRANEL' && i.visualStatus === 'bajo').length;
 
   // Dynamic form fields based on category type
   const renderCategorySpecificFields = () => {
     if (!selectedCategory) return null;
 
-    switch (selectedCategory.wearType) {
-      case 'POR_UNIDAD':
+    switch (selectedCategory.superCategory) {
+      case 'CONSUMIBLES_BASICOS':
+      case 'DECORACION_CONTABLE':
         return (
           <div className="p-4 rounded-xl bg-blue-500/10 space-y-4">
             <h4 className="font-semibold flex items-center gap-2">
               <Box className="h-4 w-4 text-blue-500" />
-              Consumible por Unidad
+              Stock por Pieza
             </h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Cantidad de Piezas</Label>
+                <Input
+                  type="number"
+                  value={formData.stockPieces}
+                  onChange={(e) => setFormData({ ...formData, stockPieces: e.target.value })}
+                  placeholder="Ej. 100"
+                />
+              </div>
+              <div>
+                <Label>Stock Mínimo</Label>
+                <Input
+                  type="number"
+                  value={formData.minStockPieces}
+                  onChange={(e) => setFormData({ ...formData, minStockPieces: e.target.value })}
+                  placeholder="Ej. 20"
+                />
+              </div>
+            </div>
             <div>
-              <Label>Piezas por Caja/Paquete</Label>
+              <Label>Uso semanal (piezas)</Label>
               <Input
                 type="number"
-                value={formData.piecesPerBox}
-                onChange={(e) => setFormData({ ...formData, piecesPerBox: e.target.value })}
-                placeholder="Ej. 100 guantes"
+                value={formData.weeklyUsageRate}
+                onChange={(e) => setFormData({ ...formData, weeklyUsageRate: e.target.value })}
+                placeholder="Ej. 25"
               />
             </div>
-            {formData.purchaseCost && formData.piecesPerBox && (
+            {formData.purchaseCost && formData.stockPieces && (
               <div className="flex items-center justify-between p-3 rounded-lg bg-background">
                 <span className="text-sm">Costo por pieza:</span>
-                <span className="text-lg font-bold text-blue-500">
-                  ${(parseFloat(formData.purchaseCost) / parseFloat(formData.piecesPerBox)).toFixed(2)}
+                <span className="text-lg font-bold text-blue-600">
+                  ${(parseFloat(formData.purchaseCost) / parseFloat(formData.stockPieces)).toFixed(2)}
                 </span>
               </div>
             )}
           </div>
         );
 
-      case 'POR_VOLUMEN':
+      case 'QUIMICOS_GELES':
         return (
           <div className="p-4 rounded-xl bg-purple-500/10 space-y-4">
             <h4 className="font-semibold flex items-center gap-2">
-              <Droplet className="h-4 w-4 text-purple-500" />
-              Consumible por Volumen
+              <Droplet className="h-4 w-4 text-purple-600" />
+              Calculadora de Gota
             </h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -327,7 +405,7 @@ export default function Inventario2() {
             {formData.purchaseCost && formData.estimatedUses && (
               <div className="flex items-center justify-between p-3 rounded-lg bg-background">
                 <span className="text-sm">Costo por uso (gota):</span>
-                <span className="text-lg font-bold text-purple-500">
+                <span className="text-lg font-bold text-purple-600">
                   ${(parseFloat(formData.purchaseCost) / parseFloat(formData.estimatedUses)).toFixed(2)}
                 </span>
               </div>
@@ -335,12 +413,38 @@ export default function Inventario2() {
           </div>
         );
 
-      case 'POR_TIEMPO':
+      case 'DECORACION_GRANEL':
+        return (
+          <div className="p-4 rounded-xl bg-rose-500/10 space-y-4">
+            <h4 className="font-semibold flex items-center gap-2">
+              <Eye className="h-4 w-4 text-rose-500" />
+              Estado Visual (Semáforo)
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              No se cuenta por gramos. Solo indica visualmente cuánto queda.
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {visualStatusOptions.map((option) => (
+                <Button
+                  key={option.value}
+                  type="button"
+                  variant={formData.visualStatus === option.value ? 'default' : 'outline'}
+                  className={formData.visualStatus === option.value ? option.color : ''}
+                  onClick={() => setFormData({ ...formData, visualStatus: option.value })}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        );
+
+      case 'EQUIPO_HERRAMIENTAS':
         return (
           <div className="p-4 rounded-xl bg-amber-500/10 space-y-4">
             <h4 className="font-semibold flex items-center gap-2">
-              <Clock className="h-4 w-4 text-amber-500" />
-              Activo Fijo / Equipo
+              <Clock className="h-4 w-4 text-amber-600" />
+              Depreciación Mensual
             </h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -357,67 +461,21 @@ export default function Inventario2() {
                   type="number"
                   value={formData.usefulLifeMonths}
                   onChange={(e) => setFormData({ ...formData, usefulLifeMonths: e.target.value })}
-                  placeholder="Ej. 12"
+                  placeholder="Ej. 24"
                 />
               </div>
             </div>
             {formData.purchaseCost && formData.usefulLifeMonths && (
               <div className="flex items-center justify-between p-3 rounded-lg bg-background">
                 <span className="text-sm">Depreciación mensual:</span>
-                <span className="text-lg font-bold text-amber-500">
+                <span className="text-lg font-bold text-amber-600">
                   ${(parseFloat(formData.purchaseCost) / parseFloat(formData.usefulLifeMonths)).toFixed(2)}/mes
                 </span>
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              💡 Este costo se agrega a tus gastos fijos mensuales, no se descuenta por servicio.
+              💡 Este costo se agrega a tus gastos fijos mensuales
             </p>
-          </div>
-        );
-
-      case 'ADICIONAL':
-        return (
-          <div className="p-4 rounded-xl bg-rose-500/10 space-y-4">
-            <h4 className="font-semibold flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-rose-500" />
-              Decoración y Arte
-            </h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Piezas Totales</Label>
-                <Input
-                  type="number"
-                  value={formData.totalPieces}
-                  onChange={(e) => setFormData({ ...formData, totalPieces: e.target.value })}
-                  placeholder="Ej. 500 cristales"
-                />
-              </div>
-              <div>
-                <Label>Precio a Cobrar (por pieza)</Label>
-                <Input
-                  type="number"
-                  value={formData.pricePerUnit}
-                  onChange={(e) => setFormData({ ...formData, pricePerUnit: e.target.value })}
-                  placeholder="Ej. $5"
-                />
-              </div>
-            </div>
-            {formData.purchaseCost && formData.totalPieces && formData.pricePerUnit && (
-              <div className="space-y-2 p-3 rounded-lg bg-background">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Costo por pieza:</span>
-                  <span className="font-medium">
-                    ${(parseFloat(formData.purchaseCost) / parseFloat(formData.totalPieces)).toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Ganancia por pieza:</span>
-                  <span className="text-lg font-bold text-rose-500">
-                    ${(parseFloat(formData.pricePerUnit) - (parseFloat(formData.purchaseCost) / parseFloat(formData.totalPieces))).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
         );
 
@@ -437,7 +495,7 @@ export default function Inventario2() {
               Inventario Inteligente
             </h1>
             <p className="text-muted-foreground mt-1">
-              Productos organizados por categoría con cálculo automático de costos
+              Productos organizados por tipo con cálculo automático de costos
             </p>
           </div>
           <div className="flex gap-2">
@@ -467,17 +525,25 @@ export default function Inventario2() {
                         <SelectValue placeholder="Elige una categoría..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {inventoryCategories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg">{cat.icon}</span>
-                              <span>{cat.name}</span>
-                              <Badge variant="outline" className="ml-2 text-xs">
-                                {wearTypeLabels[cat.wearType]}
-                              </Badge>
+                        {Object.entries(superCategoryLabels).map(([superCat, info]) => {
+                          const cats = inventoryCategories.filter(c => c.superCategory === superCat);
+                          if (cats.length === 0) return null;
+                          return (
+                            <div key={superCat}>
+                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                                {info.emoji} {info.label}
+                              </div>
+                              {cats.map((cat) => (
+                                <SelectItem key={cat.id} value={cat.id}>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-lg">{cat.icon}</span>
+                                    <span>{cat.name}</span>
+                                  </div>
+                                </SelectItem>
+                              ))}
                             </div>
-                          </SelectItem>
-                        ))}
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
@@ -496,7 +562,7 @@ export default function Inventario2() {
                               placeholder="Ej. Monómero Acrílico"
                             />
                           </div>
-                          <div>
+                          <div className="col-span-2">
                             <Label>Costo del Producto ($)</Label>
                             <Input
                               type="number"
@@ -505,21 +571,12 @@ export default function Inventario2() {
                               placeholder="500"
                             />
                           </div>
-                          <div>
-                            <Label>Usos por Semana</Label>
-                            <Input
-                              type="number"
-                              value={formData.weeklyUsageRate}
-                              onChange={(e) => setFormData({ ...formData, weeklyUsageRate: e.target.value })}
-                              placeholder="20"
-                            />
-                          </div>
                         </div>
                       </div>
 
                       {/* Step 3: Category-specific fields */}
                       <div className="space-y-2">
-                        <Label className="text-base font-semibold">3. Detalles de {selectedCategory.name}</Label>
+                        <Label className="text-base font-semibold">3. Detalles según tipo</Label>
                         {renderCategorySpecificFields()}
                       </div>
 
@@ -533,26 +590,6 @@ export default function Inventario2() {
             </Dialog>
           </div>
         </div>
-
-        {/* Smart Alerts */}
-        {urgentAlerts.length > 0 && (
-          <div className="rounded-xl bg-destructive/10 border border-destructive/30 p-4 animate-fade-in">
-            <h3 className="font-semibold text-destructive flex items-center gap-2 mb-3">
-              <AlertTriangle className="h-5 w-5" />
-              ¡Alertas de Stock!
-            </h3>
-            <div className="space-y-2">
-              {urgentAlerts.slice(0, 3).map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-2 rounded-lg bg-background">
-                  <span className="font-medium">{item.name}</span>
-                  <span className="text-sm text-destructive font-bold">
-                    Se acaba en {item.daysUntilEmpty} días
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 animate-fade-in">
@@ -576,128 +613,139 @@ export default function Inventario2() {
           </Card>
           <Card className="shadow-card">
             <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">Costo Promedio/Uso</p>
-              <p className="text-2xl font-bold text-accent">${avgCostPerUse.toFixed(2)}</p>
+              <p className="text-sm text-muted-foreground">Granel para Comprar</p>
+              <p className="text-2xl font-bold text-amber-500">{lowGranelItems}</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Inventory by Category (Accordion) */}
-        <Card className="shadow-card animate-fade-in">
-          <CardHeader>
-            <CardTitle>Inventario por Categoría</CardTitle>
-            <CardDescription>
-              Cada categoría tiene su propia lógica de cálculo de costos
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Accordion type="multiple" defaultValue={inventoryCategories.map(c => c.id)} className="space-y-2">
-              {inventoryCategories.map((category) => {
-                const items = groupedInventory[category.id] || [];
-                const criticalCount = items.filter(i => getStockStatus(i) === 'critical' || getStockStatus(i) === 'urgent').length;
+        {/* Inventory by Super Category */}
+        {Object.entries(groupedBySuperCategory).map(([superCat, categoryGroups]) => {
+          const info = superCategoryLabels[superCat as SuperCategoryType];
+          const totalItems = categoryGroups.reduce((sum, g) => sum + g.items.length, 0);
+          
+          if (totalItems === 0) return null;
 
-                return (
-                  <AccordionItem key={category.id} value={category.id} className="border rounded-lg px-4">
-                    <AccordionTrigger className="hover:no-underline">
-                      <div className="flex items-center gap-3 w-full">
-                        <div className={`w-10 h-10 rounded-lg ${category.color} flex items-center justify-center text-xl`}>
-                          {category.icon}
-                        </div>
-                        <div className="flex-1 text-left">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">{category.name}</span>
-                            <Badge variant="secondary">{items.length}</Badge>
-                            {criticalCount > 0 && (
-                              <Badge variant="destructive">{criticalCount} críticos</Badge>
-                            )}
+          return (
+            <Card key={superCat} className="shadow-card animate-fade-in">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{info.emoji}</span>
+                  <CardTitle>{info.label}</CardTitle>
+                  <Badge variant="secondary">{totalItems} productos</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Accordion type="multiple" defaultValue={categoryGroups.map(g => g.category.id)} className="space-y-2">
+                  {categoryGroups.map(({ category, items }) => {
+                    if (items.length === 0) return null;
+                    const criticalCount = items.filter(i => {
+                      const status = getStockStatus(i);
+                      return status === 'critical' || status === 'urgent';
+                    }).length;
+
+                    return (
+                      <AccordionItem key={category.id} value={category.id} className="border rounded-lg px-4">
+                        <AccordionTrigger className="hover:no-underline">
+                          <div className="flex items-center gap-3 w-full">
+                            <div className={`w-8 h-8 rounded-lg ${category.color} flex items-center justify-center text-lg`}>
+                              {category.icon}
+                            </div>
+                            <div className="flex-1 text-left">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold">{category.name}</span>
+                                <Badge variant="secondary">{items.length}</Badge>
+                                {criticalCount > 0 && (
+                                  <Badge variant="destructive">{criticalCount} críticos</Badge>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <p className="text-xs text-muted-foreground">{category.description}</p>
-                        </div>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      {items.length === 0 ? (
-                        <p className="text-muted-foreground text-center py-4">
-                          No hay productos en esta categoría
-                        </p>
-                      ) : (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Producto</TableHead>
-                              <TableHead>Costo</TableHead>
-                              <TableHead>Stock</TableHead>
-                              <TableHead>Días Restantes</TableHead>
-                              <TableHead>Estado</TableHead>
-                              <TableHead className="w-[50px]"></TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {items.map((item) => {
-                              const status = getStockStatus(item);
-                              const percentage = (item.effectiveStock / item.totalStock) * 100;
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Producto</TableHead>
+                                <TableHead>Costo</TableHead>
+                                <TableHead>Stock</TableHead>
+                                <TableHead>Estado</TableHead>
+                                <TableHead className="w-[50px]"></TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {items.map((item) => {
+                                const status = getStockStatus(item);
 
-                              return (
-                                <TableRow key={item.id}>
-                                  <TableCell>
-                                    <p className="font-medium">{item.name}</p>
-                                  </TableCell>
-                                  <TableCell>
-                                    <span className="font-bold text-primary">
-                                      {getCostDisplay(item, category)}
-                                    </span>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="space-y-1">
-                                      <span className="font-medium">
-                                        {item.effectiveStock.toFixed(1)} {item.unit}
+                                return (
+                                  <TableRow key={item.id}>
+                                    <TableCell>
+                                      <p className="font-medium">{item.name}</p>
+                                    </TableCell>
+                                    <TableCell>
+                                      <span className="font-bold text-primary">
+                                        {getCostDisplay(item)}
                                       </span>
-                                      <Progress value={percentage} className="h-2 w-20" />
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center gap-1">
-                                      <Clock className="h-4 w-4 text-muted-foreground" />
-                                      <span className={`font-bold ${item.daysUntilEmpty <= 7 ? 'text-destructive' : ''}`}>
-                                        {category.wearType === 'POR_TIEMPO' 
-                                          ? `${item.usefulLifeMonths || 12} meses`
-                                          : item.daysUntilEmpty > 99 ? '99+' : `${item.daysUntilEmpty} días`
-                                        }
-                                      </span>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>{getStatusBadge(status)}</TableCell>
-                                  <TableCell>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-destructive hover:text-destructive"
-                                      onClick={() => removeInventoryItem(item.id)}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      )}
-                    </AccordionContent>
-                  </AccordionItem>
-                );
-              })}
-            </Accordion>
-          </CardContent>
-        </Card>
+                                    </TableCell>
+                                    <TableCell>
+                                      {item.superCategory === 'DECORACION_GRANEL' ? (
+                                        <Select
+                                          value={item.visualStatus}
+                                          onValueChange={(v) => updateInventoryItem(item.id, { visualStatus: v as VisualStockStatus })}
+                                        >
+                                          <SelectTrigger className="w-32">
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {visualStatusOptions.map((opt) => (
+                                              <SelectItem key={opt.value} value={opt.value}>
+                                                {opt.label}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      ) : (
+                                        <span>{getStockDisplay(item)}</span>
+                                      )}
+                                    </TableCell>
+                                    <TableCell>
+                                      {item.superCategory === 'DECORACION_GRANEL' 
+                                        ? getVisualStatusBadge(item.visualStatus || 'lleno')
+                                        : getStatusBadge(status)
+                                      }
+                                    </TableCell>
+                                    <TableCell>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-destructive hover:text-destructive"
+                                        onClick={() => removeInventoryItem(item.id)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
+                </Accordion>
+              </CardContent>
+            </Card>
+          );
+        })}
 
         {/* Legend */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in">
           <Info className="h-4 w-4" />
           <span>
-            Los costos se calculan automáticamente según el tipo de desgaste de cada categoría.
-            <Link to="/gestion-categorias" className="text-primary ml-1 hover:underline">
-              Configurar categorías →
+            Cada tipo de producto tiene su propia lógica de cálculo. 
+            <Link to="/extras" className="text-primary ml-1 hover:underline">
+              Ver precios de extras →
             </Link>
           </span>
         </div>

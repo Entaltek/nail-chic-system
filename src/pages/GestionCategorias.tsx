@@ -37,49 +37,66 @@ import {
   Clock,
   Sparkles,
   Info,
+  Eye,
 } from "lucide-react";
-import { useBusinessConfig, InventoryCategory, WearType } from "@/stores/businessConfig";
+import { useBusinessConfig, InventoryCategory, SuperCategoryType } from "@/stores/businessConfig";
 import { toast } from "@/hooks/use-toast";
 
-const wearTypeInfo: Record<WearType, { label: string; description: string; icon: React.ReactNode; color: string }> = {
-  POR_UNIDAD: {
-    label: 'Por Unidad',
-    description: 'Se descuenta 1 pieza entera (ej. Limas, Guantes)',
+const superCategoryInfo: Record<SuperCategoryType, { label: string; description: string; icon: React.ReactNode; color: string; emoji: string }> = {
+  CONSUMIBLES_BASICOS: {
+    label: 'Consumibles Básicos',
+    description: 'Stock exacto por pieza (Limas, Guantes, Tips)',
     icon: <Box className="h-4 w-4" />,
     color: 'bg-blue-500',
+    emoji: '🔵',
   },
-  POR_VOLUMEN: {
-    label: 'Por Volumen',
-    description: 'Se descuenta por ml/gr (ej. Monómero, Gel)',
+  QUIMICOS_GELES: {
+    label: 'Químicos y Geles',
+    description: 'Calculadora de gota - costo por ml/gr (Monómero, Gel)',
     icon: <Droplet className="h-4 w-4" />,
     color: 'bg-purple-500',
+    emoji: '🟣',
   },
-  POR_TIEMPO: {
-    label: 'Por Tiempo',
-    description: 'No se descuenta, se deprecia (ej. Lámpara UV)',
+  DECORACION_CONTABLE: {
+    label: 'Decoración Contable',
+    description: 'Stock exacto por pieza (Charms, Cristales Grandes)',
+    icon: <Sparkles className="h-4 w-4" />,
+    color: 'bg-pink-500',
+    emoji: '✨',
+  },
+  DECORACION_GRANEL: {
+    label: 'Decoración a Granel',
+    description: 'Estado visual: Lleno/Medio/Bajo (Glitter, Efectos)',
+    icon: <Eye className="h-4 w-4" />,
+    color: 'bg-rose-400',
+    emoji: '🎨',
+  },
+  EQUIPO_HERRAMIENTAS: {
+    label: 'Equipo y Herramientas',
+    description: 'Depreciación mensual (Drill, Lámpara, Pinceles)',
     icon: <Clock className="h-4 w-4" />,
     color: 'bg-amber-500',
-  },
-  ADICIONAL: {
-    label: 'Adicional',
-    description: 'Costo directo al ticket, no gestiona stock estricto (ej. Stickers, Arte)',
-    icon: <Sparkles className="h-4 w-4" />,
-    color: 'bg-rose-500',
+    emoji: '🛠',
   },
 };
 
 const colorOptions = [
   { value: 'bg-blue-500', label: 'Azul' },
-  { value: 'bg-pink-500', label: 'Rosa' },
+  { value: 'bg-blue-400', label: 'Azul Claro' },
+  { value: 'bg-blue-300', label: 'Azul Suave' },
   { value: 'bg-purple-500', label: 'Púrpura' },
-  { value: 'bg-teal-500', label: 'Verde Azulado' },
+  { value: 'bg-purple-400', label: 'Púrpura Claro' },
+  { value: 'bg-purple-300', label: 'Púrpura Suave' },
+  { value: 'bg-pink-500', label: 'Rosa' },
+  { value: 'bg-rose-400', label: 'Rosa Intenso' },
+  { value: 'bg-rose-300', label: 'Rosa Suave' },
   { value: 'bg-amber-500', label: 'Ámbar' },
-  { value: 'bg-rose-500', label: 'Rosa Intenso' },
+  { value: 'bg-amber-400', label: 'Ámbar Claro' },
+  { value: 'bg-teal-500', label: 'Verde Azulado' },
   { value: 'bg-emerald-500', label: 'Esmeralda' },
-  { value: 'bg-indigo-500', label: 'Índigo' },
 ];
 
-const iconOptions = ['🧤', '💅', '✨', '🦶', '🔧', '💎', '🎨', '💄', '🧴', '✂️', '🪥', '💫'];
+const iconOptions = ['🧤', '💅', '✨', '🦶', '🔧', '💎', '🎨', '💄', '🧴', '✂️', '🪥', '💫', '📏', '🧪', '💧', '🎀', '🌟', '🔌'];
 
 export default function GestionCategorias() {
   const { inventoryCategories, addInventoryCategory, updateInventoryCategory, removeInventoryCategory, inventory } = useBusinessConfig();
@@ -87,7 +104,7 @@ export default function GestionCategorias() {
   const [editingCategory, setEditingCategory] = useState<InventoryCategory | null>(null);
   const [formData, setFormData] = useState({
     name: '',
-    wearType: 'POR_VOLUMEN' as WearType,
+    superCategory: 'QUIMICOS_GELES' as SuperCategoryType,
     description: '',
     color: 'bg-blue-500',
     icon: '📦',
@@ -96,7 +113,7 @@ export default function GestionCategorias() {
   const resetForm = () => {
     setFormData({
       name: '',
-      wearType: 'POR_VOLUMEN',
+      superCategory: 'QUIMICOS_GELES',
       description: '',
       color: 'bg-blue-500',
       icon: '📦',
@@ -109,7 +126,7 @@ export default function GestionCategorias() {
       setEditingCategory(category);
       setFormData({
         name: category.name,
-        wearType: category.wearType,
+        superCategory: category.superCategory,
         description: category.description,
         color: category.color,
         icon: category.icon,
@@ -170,6 +187,13 @@ export default function GestionCategorias() {
     return inventory.filter(item => item.categoryId === categoryId).length;
   };
 
+  // Group categories by super category
+  const groupedCategories = Object.entries(superCategoryInfo).map(([key, info]) => ({
+    superCategory: key as SuperCategoryType,
+    info,
+    categories: inventoryCategories.filter(c => c.superCategory === key),
+  }));
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -225,19 +249,19 @@ export default function GestionCategorias() {
                 </div>
 
                 <div>
-                  <Label>Tipo de Desgaste</Label>
+                  <Label>Super Categoría (Lógica de Cálculo)</Label>
                   <Select 
-                    value={formData.wearType} 
-                    onValueChange={(v) => setFormData({ ...formData, wearType: v as WearType })}
+                    value={formData.superCategory} 
+                    onValueChange={(v) => setFormData({ ...formData, superCategory: v as SuperCategoryType })}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(wearTypeInfo).map(([key, info]) => (
+                      {Object.entries(superCategoryInfo).map(([key, info]) => (
                         <SelectItem key={key} value={key}>
                           <div className="flex items-center gap-2">
-                            {info.icon}
+                            <span>{info.emoji}</span>
                             <span>{info.label}</span>
                           </div>
                         </SelectItem>
@@ -245,7 +269,7 @@ export default function GestionCategorias() {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {wearTypeInfo[formData.wearType].description}
+                    {superCategoryInfo[formData.superCategory].description}
                   </p>
                 </div>
 
@@ -285,22 +309,20 @@ export default function GestionCategorias() {
           </Dialog>
         </div>
 
-        {/* Wear Type Legend */}
+        {/* Super Category Legend */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <Info className="h-5 w-5 text-primary" />
-              Tipos de Desgaste
+              Tipos de Inventario (Super Categorías)
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {Object.entries(wearTypeInfo).map(([key, info]) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Object.entries(superCategoryInfo).map(([key, info]) => (
                 <div key={key} className="p-3 rounded-lg bg-muted/50 space-y-1">
                   <div className="flex items-center gap-2">
-                    <div className={`p-1.5 rounded ${info.color} text-white`}>
-                      {info.icon}
-                    </div>
+                    <span className="text-xl">{info.emoji}</span>
                     <span className="font-medium">{info.label}</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -312,80 +334,82 @@ export default function GestionCategorias() {
           </CardContent>
         </Card>
 
-        {/* Categories Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Categorías Configuradas</CardTitle>
-            <CardDescription>
-              Los productos heredan su lógica de cálculo de la categoría asignada
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Categoría</TableHead>
-                  <TableHead>Tipo de Desgaste</TableHead>
-                  <TableHead>Descripción</TableHead>
-                  <TableHead className="text-center">Productos</TableHead>
-                  <TableHead className="w-[100px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {inventoryCategories.map((category) => {
-                  const wearInfo = wearTypeInfo[category.wearType];
-                  const itemCount = getItemCount(category.id);
-
-                  return (
-                    <TableRow key={category.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-lg ${category.color} flex items-center justify-center text-xl`}>
-                            {category.icon}
-                          </div>
-                          <span className="font-medium">{category.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="gap-1">
-                          {wearInfo.icon}
-                          {wearInfo.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground max-w-[200px] truncate">
-                        {category.description}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="secondary">{itemCount}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleOpenDialog(category)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => handleDelete(category)}
-                            disabled={itemCount > 0}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+        {/* Categories by Super Category */}
+        {groupedCategories.map(({ superCategory, info, categories }) => (
+          <Card key={superCategory}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">{info.emoji}</span>
+                <CardTitle className="text-lg">{info.label}</CardTitle>
+                <Badge variant="secondary">{categories.length} categorías</Badge>
+              </div>
+              <CardDescription>{info.description}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {categories.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">
+                  No hay categorías en este tipo
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Categoría</TableHead>
+                      <TableHead>Descripción</TableHead>
+                      <TableHead className="text-center">Productos</TableHead>
+                      <TableHead className="w-[100px]"></TableHead>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {categories.map((category) => {
+                      const itemCount = getItemCount(category.id);
+
+                      return (
+                        <TableRow key={category.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className={`w-10 h-10 rounded-lg ${category.color} flex items-center justify-center text-xl`}>
+                                {category.icon}
+                              </div>
+                              <span className="font-medium">{category.name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground max-w-[200px] truncate">
+                            {category.description}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="secondary">{itemCount}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleOpenDialog(category)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                onClick={() => handleDelete(category)}
+                                disabled={itemCount > 0}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </MainLayout>
   );
