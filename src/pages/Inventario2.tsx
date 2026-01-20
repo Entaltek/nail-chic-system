@@ -486,7 +486,7 @@ export default function Inventario2() {
 
   return (
     <MainLayout>
-      <div className="space-y-4 max-w-4xl">
+      <div className="space-y-4">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-fade-in">
           <div>
@@ -613,125 +613,99 @@ export default function Inventario2() {
           )}
         </div>
 
-        {/* Inventory by Super Category */}
-        {Object.entries(groupedBySuperCategory).map(([superCat, categoryGroups]) => {
-          const info = superCategoryLabels[superCat as SuperCategoryType];
-          const totalItems = categoryGroups.reduce((sum, g) => sum + g.items.length, 0);
-          
-          if (totalItems === 0) return null;
+        {/* Inventory by Super Category - 2 Columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {Object.entries(groupedBySuperCategory).map(([superCat, categoryGroups]) => {
+            const info = superCategoryLabels[superCat as SuperCategoryType];
+            const totalItems = categoryGroups.reduce((sum, g) => sum + g.items.length, 0);
+            
+            if (totalItems === 0) return null;
 
-          return (
-            <Card key={superCat} className="shadow-card animate-fade-in">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{info.emoji}</span>
-                  <CardTitle>{info.label}</CardTitle>
-                  <Badge variant="secondary">{totalItems} productos</Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Accordion type="multiple" defaultValue={categoryGroups.map(g => g.category.id)} className="space-y-2">
-                  {categoryGroups.map(({ category, items }) => {
-                    if (items.length === 0) return null;
-                    const criticalCount = items.filter(i => {
-                      const status = getStockStatus(i);
-                      return status === 'critical' || status === 'urgent';
-                    }).length;
+            return (
+              <Card key={superCat} className="shadow-card animate-fade-in overflow-hidden">
+                <CardHeader className="py-2.5 px-3 bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{info.emoji}</span>
+                    <CardTitle className="text-sm">{info.label}</CardTitle>
+                    <Badge variant="secondary" className="text-xs">{totalItems}</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-2">
+                  <Accordion type="multiple" defaultValue={categoryGroups.map(g => g.category.id)} className="space-y-1">
+                    {categoryGroups.map(({ category, items }) => {
+                      if (items.length === 0) return null;
+                      const criticalCount = items.filter(i => {
+                        const status = getStockStatus(i);
+                        return status === 'critical' || status === 'urgent';
+                      }).length;
 
-                    return (
-                      <AccordionItem key={category.id} value={category.id} className="border rounded-lg px-4">
-                        <AccordionTrigger className="hover:no-underline">
-                          <div className="flex items-center gap-3 w-full">
-                            <div className={`w-8 h-8 rounded-lg ${category.color} flex items-center justify-center text-lg`}>
-                              {category.icon}
-                            </div>
-                            <div className="flex-1 text-left">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold">{category.name}</span>
-                                <Badge variant="secondary">{items.length}</Badge>
-                                {criticalCount > 0 && (
-                                  <Badge variant="destructive">{criticalCount} críticos</Badge>
-                                )}
+                      return (
+                        <AccordionItem key={category.id} value={category.id} className="border rounded-md px-2">
+                          <AccordionTrigger className="hover:no-underline py-2">
+                            <div className="flex items-center gap-2 w-full">
+                              <div className={`w-6 h-6 rounded ${category.color} flex items-center justify-center text-xs`}>
+                                {category.icon}
                               </div>
+                              <span className="font-medium text-sm">{category.name}</span>
+                              <Badge variant="secondary" className="text-xs">{items.length}</Badge>
+                              {criticalCount > 0 && (
+                                <Badge variant="destructive" className="text-xs">{criticalCount}</Badge>
+                              )}
                             </div>
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Producto</TableHead>
-                                <TableHead>Costo</TableHead>
-                                <TableHead>Stock</TableHead>
-                                <TableHead>Estado</TableHead>
-                                <TableHead className="w-[50px]"></TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
+                          </AccordionTrigger>
+                          <AccordionContent className="pt-0 pb-2">
+                            <div className="space-y-1">
                               {items.map((item) => {
                                 const status = getStockStatus(item);
-
+                                const isGranel = item.superCategory === 'DECORACION_GRANEL';
                                 return (
-                                  <TableRow key={item.id}>
-                                    <TableCell>
-                                      <p className="font-medium">{item.name}</p>
-                                    </TableCell>
-                                    <TableCell>
-                                      <span className="font-bold text-primary">
-                                        {getCostDisplay(item)}
-                                      </span>
-                                    </TableCell>
-                                    <TableCell>
-                                      {item.superCategory === 'DECORACION_GRANEL' ? (
-                                        <Select
-                                          value={item.visualStatus}
-                                          onValueChange={(v) => updateInventoryItem(item.id, { visualStatus: v as VisualStockStatus })}
-                                        >
-                                          <SelectTrigger className="w-32">
-                                            <SelectValue />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {visualStatusOptions.map((opt) => (
-                                              <SelectItem key={opt.value} value={opt.value}>
-                                                {opt.label}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      ) : (
-                                        <span>{getStockDisplay(item)}</span>
-                                      )}
-                                    </TableCell>
-                                    <TableCell>
-                                      {item.superCategory === 'DECORACION_GRANEL' 
-                                        ? getVisualStatusBadge(item.visualStatus || 'lleno')
-                                        : getStatusBadge(status)
-                                      }
-                                    </TableCell>
-                                    <TableCell>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 text-destructive hover:text-destructive"
-                                        onClick={() => removeInventoryItem(item.id)}
+                                  <div key={item.id} className="flex items-center gap-2 p-1.5 rounded bg-muted/30 text-sm">
+                                    <span className="font-medium flex-1 truncate">{item.name}</span>
+                                    <span className="text-primary font-semibold text-xs">{getCostDisplay(item)}</span>
+                                    {isGranel ? (
+                                      <Select
+                                        value={item.visualStatus}
+                                        onValueChange={(v) => updateInventoryItem(item.id, { visualStatus: v as VisualStockStatus })}
                                       >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </TableCell>
-                                  </TableRow>
+                                        <SelectTrigger className="w-24 h-6 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {visualStatusOptions.map((opt) => (
+                                            <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                                              {opt.label}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    ) : (
+                                      <>
+                                        <span className="text-xs text-muted-foreground">{getStockDisplay(item)}</span>
+                                        {getStatusBadge(status)}
+                                      </>
+                                    )}
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-destructive hover:text-destructive"
+                                      onClick={() => removeInventoryItem(item.id)}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
                                 );
                               })}
-                            </TableBody>
-                          </Table>
-                        </AccordionContent>
-                      </AccordionItem>
-                    );
-                  })}
-                </Accordion>
-              </CardContent>
-            </Card>
-          );
-        })}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      );
+                    })}
+                  </Accordion>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
 
         {/* Legend */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in">

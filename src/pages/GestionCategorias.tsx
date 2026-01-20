@@ -319,66 +319,47 @@ export default function GestionCategorias() {
           ))}
         </div>
 
-        {/* Categories by Super Category - Compact */}
-        {groupedCategories.map(({ superCategory, info, categories }) => {
-          if (categories.length === 0) return null;
-          return (
-            <Card key={superCategory} className="overflow-hidden">
-              <CardHeader className="py-3 px-4 bg-muted/30">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{info.emoji}</span>
-                  <CardTitle className="text-base">{info.label}</CardTitle>
-                  <Badge variant="secondary" className="text-xs">{categories.length}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="pl-4">Categoría</TableHead>
-                      <TableHead className="hidden sm:table-cell">Descripción</TableHead>
-                      <TableHead className="text-center w-16">Items</TableHead>
-                      <TableHead className="w-20"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+        {/* Categories by Super Category - 2 Columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {groupedCategories.map(({ superCategory, info, categories }) => {
+            if (categories.length === 0) return null;
+            return (
+              <Card key={superCategory} className="overflow-hidden">
+                <CardHeader className="py-2.5 px-3 bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{info.emoji}</span>
+                    <CardTitle className="text-sm">{info.label}</CardTitle>
+                    <Badge variant="secondary" className="text-xs">{categories.length}</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-2">
+                  <div className="space-y-1">
                     {categories.map((category) => {
                       const itemCount = getItemCount(category.id);
                       return (
-                        <TableRow key={category.id}>
-                          <TableCell className="pl-4 py-2">
-                            <div className="flex items-center gap-2">
-                              <div className={`w-7 h-7 rounded ${category.color} flex items-center justify-center text-sm`}>
-                                {category.icon}
-                              </div>
-                              <span className="font-medium text-sm">{category.name}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="hidden sm:table-cell text-muted-foreground text-sm truncate max-w-[180px]">
-                            {category.description}
-                          </TableCell>
-                          <TableCell className="text-center py-2">
-                            <Badge variant="secondary" className="text-xs">{itemCount}</Badge>
-                          </TableCell>
-                          <TableCell className="py-2">
-                            <div className="flex items-center gap-0.5">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenDialog(category)}>
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(category)} disabled={itemCount > 0}>
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
+                        <div key={category.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 group">
+                          <div className={`w-6 h-6 rounded ${category.color} flex items-center justify-center text-xs`}>
+                            {category.icon}
+                          </div>
+                          <span className="font-medium text-sm flex-1 truncate">{category.name}</span>
+                          <Badge variant="secondary" className="text-xs">{itemCount}</Badge>
+                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenDialog(category)}>
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDelete(category)} disabled={itemCount > 0}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
                       );
                     })}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          );
-        })}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>
     </MainLayout>
   );
