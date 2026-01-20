@@ -61,6 +61,7 @@ export default function CostosGastos() {
     addFixedExpense({
       name: newExpense.name,
       category: newExpense.category || "Otro",
+      expenseType: 'OTROS',
       amount: parseFloat(newExpense.amount),
       budget: parseFloat(newExpense.budget) || parseFloat(newExpense.amount),
     });

@@ -99,6 +99,7 @@ export default function ExtrasPrecios() {
 
     const extraData = {
       name: formData.name,
+      type: 'TECNICA' as const,
       category: formData.category,
       basePrice: parseFloat(formData.basePrice),
       extraMinutes: parseFloat(formData.extraMinutes) || 0,
