@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -20,14 +21,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   FolderOpen,
   Plus,
   Pencil,
@@ -36,9 +29,10 @@ import {
   Droplet,
   Clock,
   Sparkles,
-  Info,
   Eye,
   Search,
+  ChevronRight,
+  Package,
 } from "lucide-react";
 import { useBusinessConfig, InventoryCategory, SuperCategoryType } from "@/stores/businessConfig";
 import { toast } from "@/hooks/use-toast";
@@ -99,12 +93,18 @@ const colorOptions = [
 
 const iconOptions = ['🧤', '💅', '✨', '🦶', '🔧', '💎', '🎨', '💄', '🧴', '✂️', '🪥', '💫', '📏', '🧪', '💧', '🎀', '🌟', '🔌'];
 
+const TOP_ITEMS_LIMIT = 5;
+
 export default function GestionCategorias() {
   const { inventoryCategories, addInventoryCategory, updateInventoryCategory, removeInventoryCategory, inventory } = useBusinessConfig();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<InventoryCategory | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSuperCategories, setSelectedSuperCategories] = useState<Set<SuperCategoryType>>(new Set());
+  
+  // Expanded super category modal
+  const [expandedSuperCategory, setExpandedSuperCategory] = useState<SuperCategoryType | null>(null);
+  
   const [formData, setFormData] = useState({
     name: '',
     superCategory: 'QUIMICOS_GELES' as SuperCategoryType,
@@ -239,6 +239,38 @@ export default function GestionCategorias() {
   }, [groupedCategories, selectedSuperCategories]);
 
   const isAllSelected = selectedSuperCategories.size === 0;
+
+  // Render category row
+  const renderCategoryRow = (category: InventoryCategory, showActions = true) => {
+    const itemCount = getItemCount(category.id);
+    return (
+      <div key={category.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 group">
+        <div className={`w-6 h-6 rounded ${category.color} flex items-center justify-center text-xs`}>
+          {category.icon}
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="font-medium text-sm truncate block">{category.name}</span>
+          {category.description && (
+            <span className="text-xs text-muted-foreground truncate block">{category.description}</span>
+          )}
+        </div>
+        <Badge variant="secondary" className="text-xs gap-1">
+          <Package className="h-3 w-3" />
+          {itemCount}
+        </Badge>
+        {showActions && (
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); handleOpenDialog(category); }}>
+              <Pencil className="h-3 w-3" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(category); }} disabled={itemCount > 0}>
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <MainLayout>
@@ -397,47 +429,82 @@ export default function GestionCategorias() {
           </div>
         </div>
 
-        {/* Categories by Super Category - Dynamic columns */}
-        <div className={`grid gap-4 ${isAllSelected ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+        {/* Categories by Super Category - Dynamic columns with Top 5 */}
+        <div className={`grid gap-4 ${isAllSelected ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
           {filteredGroups.map(({ superCategory, info, categories }) => {
             if (categories.length === 0) return null;
+            
+            const topCategories = categories.slice(0, TOP_ITEMS_LIMIT);
+            const remainingCount = Math.max(0, categories.length - TOP_ITEMS_LIMIT);
+            const totalProducts = categories.reduce((sum, c) => sum + getItemCount(c.id), 0);
+            
             return (
-              <Card key={superCategory} className="overflow-hidden">
+              <Card 
+                key={superCategory} 
+                className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                onClick={() => categories.length > TOP_ITEMS_LIMIT && setExpandedSuperCategory(superCategory)}
+              >
                 <CardHeader className="py-2.5 px-3 bg-muted/30">
                   <div className="flex items-center gap-2">
                     <span className="text-base">{info.emoji}</span>
-                    <CardTitle className="text-sm">{info.label}</CardTitle>
+                    <CardTitle className="text-sm flex-1">{info.label}</CardTitle>
                     <Badge variant="secondary" className="text-xs">{categories.length}</Badge>
+                    {categories.length > TOP_ITEMS_LIMIT && (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    )}
                   </div>
+                  <CardDescription className="text-xs">
+                    {totalProducts} productos totales
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="p-2">
                   <div className="space-y-1">
-                    {categories.map((category) => {
-                      const itemCount = getItemCount(category.id);
-                      return (
-                        <div key={category.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 group">
-                          <div className={`w-6 h-6 rounded ${category.color} flex items-center justify-center text-xs`}>
-                            {category.icon}
-                          </div>
-                          <span className="font-medium text-sm flex-1 truncate">{category.name}</span>
-                          <Badge variant="secondary" className="text-xs">{itemCount}</Badge>
-                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenDialog(category)}>
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDelete(category)} disabled={itemCount > 0}>
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {topCategories.map((category) => renderCategoryRow(category))}
                   </div>
+                  
+                  {remainingCount > 0 && (
+                    <Button
+                      variant="ghost"
+                      className="w-full mt-2 text-xs h-8 text-muted-foreground hover:text-foreground"
+                      onClick={(e) => { e.stopPropagation(); setExpandedSuperCategory(superCategory); }}
+                    >
+                      Ver {remainingCount} categorías más
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             );
           })}
         </div>
+
+        {/* Expanded Super Category Modal */}
+        <Dialog open={expandedSuperCategory !== null} onOpenChange={(open) => !open && setExpandedSuperCategory(null)}>
+          <DialogContent className="sm:max-w-2xl max-h-[80vh]">
+            {expandedSuperCategory && (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <span className="text-xl">{superCategoryInfo[expandedSuperCategory].emoji}</span>
+                    {superCategoryInfo[expandedSuperCategory].label}
+                    <Badge variant="secondary" className="ml-2">
+                      {groupedCategories.find(g => g.superCategory === expandedSuperCategory)?.categories.length || 0} categorías
+                    </Badge>
+                  </DialogTitle>
+                  <CardDescription>
+                    {superCategoryInfo[expandedSuperCategory].description}
+                  </CardDescription>
+                </DialogHeader>
+                <ScrollArea className="max-h-[60vh] pr-4">
+                  <div className="space-y-1.5">
+                    {groupedCategories
+                      .find(g => g.superCategory === expandedSuperCategory)
+                      ?.categories.map((category) => renderCategoryRow(category))}
+                  </div>
+                </ScrollArea>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );

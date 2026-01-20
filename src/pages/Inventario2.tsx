@@ -19,14 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Package,
@@ -42,8 +34,7 @@ import {
   Eye,
   CircleDot,
   Search,
-  ChevronDown,
-  X,
+  ChevronRight,
 } from "lucide-react";
 import { 
   useBusinessConfig, 
@@ -66,7 +57,7 @@ const superCategoryLabels: Record<SuperCategoryType, { label: string; emoji: str
 const visualStatusOptions: { value: VisualStockStatus; label: string; color: string }[] = [
   { value: 'lleno', label: '🟢 Lleno', color: 'bg-green-500' },
   { value: 'medio', label: '🟡 Medio', color: 'bg-yellow-500' },
-  { value: 'bajo', label: '🔴 Bajo (Comprar)', color: 'bg-red-500' },
+  { value: 'bajo', label: '🔴 Bajo', color: 'bg-red-500' },
 ];
 
 const TOP_ITEMS_LIMIT = 5;
@@ -78,8 +69,8 @@ export default function Inventario2() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSuperCategories, setSelectedSuperCategories] = useState<Set<SuperCategoryType>>(new Set());
   
-  // Modal for expanded view
-  const [expandedCategory, setExpandedCategory] = useState<{ superCategory: SuperCategoryType; categoryId?: string } | null>(null);
+  // Expanded view - can be a category or super category
+  const [expandedView, setExpandedView] = useState<{ type: 'category' | 'superCategory'; id: string } | null>(null);
   
   // Dynamic form state based on category
   const [formData, setFormData] = useState({
@@ -247,22 +238,11 @@ export default function Inventario2() {
       case "critical":
         return <Badge variant="destructive" className="gap-1 text-xs"><AlertTriangle className="h-3 w-3" />Crítico</Badge>;
       case "urgent":
-        return <Badge className="bg-orange-500 text-white gap-1 text-xs"><Clock className="h-3 w-3" />¡Urgente!</Badge>;
+        return <Badge className="bg-orange-500 text-white gap-1 text-xs"><Clock className="h-3 w-3" />Urgente</Badge>;
       case "low":
         return <Badge className="bg-accent text-accent-foreground gap-1 text-xs">Bajo</Badge>;
       default:
         return <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">OK</Badge>;
-    }
-  };
-
-  const getVisualStatusBadge = (status: VisualStockStatus) => {
-    switch (status) {
-      case 'lleno':
-        return <Badge className="bg-green-500 text-white gap-1 text-xs"><CircleDot className="h-3 w-3" />Lleno</Badge>;
-      case 'medio':
-        return <Badge className="bg-yellow-500 text-white gap-1 text-xs"><CircleDot className="h-3 w-3" />Medio</Badge>;
-      case 'bajo':
-        return <Badge variant="destructive" className="gap-1 text-xs"><AlertTriangle className="h-3 w-3" />¡Comprar!</Badge>;
     }
   };
 
@@ -290,7 +270,7 @@ export default function Inventario2() {
       case 'QUIMICOS_GELES':
         return `${item.currentStock || 0} ${item.contentUnit || 'ml'}`;
       case 'DECORACION_GRANEL':
-        return '-';
+        return item.visualStatus || '-';
       case 'EQUIPO_HERRAMIENTAS':
         return `${item.usefulLifeMonths || 0}m`;
       default:
@@ -298,9 +278,40 @@ export default function Inventario2() {
     }
   };
 
-  // Group inventory by super category
+  // Group inventory by category within super category
+  const groupedByCategory = useMemo(() => {
+    const groups: Record<string, { category: InventoryCategory; items: InventoryItem[] }> = {};
+
+    inventoryCategories.forEach(cat => {
+      let items = inventory.filter(item => item.categoryId === cat.id);
+      
+      // Apply search filter
+      if (searchTerm) {
+        items = items.filter(item => 
+          item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.category?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+
+      // Sort by priority: critical first
+      items.sort((a, b) => {
+        const priorityOrder = { critical: 0, urgent: 1, low: 2, ok: 3 };
+        const statusA = getStockStatus(a);
+        const statusB = getStockStatus(b);
+        return priorityOrder[statusA as keyof typeof priorityOrder] - priorityOrder[statusB as keyof typeof priorityOrder];
+      });
+
+      if (items.length > 0 || !searchTerm) {
+        groups[cat.id] = { category: cat, items };
+      }
+    });
+
+    return groups;
+  }, [inventory, inventoryCategories, searchTerm]);
+
+  // Group categories by super category
   const groupedBySuperCategory = useMemo(() => {
-    const groups: Record<SuperCategoryType, InventoryItem[]> = {
+    const groups: Record<SuperCategoryType, { category: InventoryCategory; items: InventoryItem[] }[]> = {
       CONSUMIBLES_BASICOS: [],
       QUIMICOS_GELES: [],
       DECORACION_CONTABLE: [],
@@ -308,29 +319,12 @@ export default function Inventario2() {
       EQUIPO_HERRAMIENTAS: [],
     };
 
-    inventory.forEach(item => {
-      if (searchTerm) {
-        const matches = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.category?.toLowerCase().includes(searchTerm.toLowerCase());
-        if (!matches) return;
-      }
-      groups[item.superCategory].push(item);
-    });
-
-    // Sort by priority: critical first, then by name
-    Object.keys(groups).forEach(key => {
-      groups[key as SuperCategoryType].sort((a, b) => {
-        const statusA = getStockStatus(a);
-        const statusB = getStockStatus(b);
-        const priorityOrder = { critical: 0, urgent: 1, low: 2, ok: 3 };
-        const priorityDiff = priorityOrder[statusA as keyof typeof priorityOrder] - priorityOrder[statusB as keyof typeof priorityOrder];
-        if (priorityDiff !== 0) return priorityDiff;
-        return a.name.localeCompare(b.name);
-      });
+    Object.values(groupedByCategory).forEach(({ category, items }) => {
+      groups[category.superCategory].push({ category, items });
     });
 
     return groups;
-  }, [inventory, searchTerm]);
+  }, [groupedByCategory]);
 
   // Filter which super categories to show
   const filteredSuperCategories = useMemo(() => {
@@ -349,201 +343,40 @@ export default function Inventario2() {
     return status === 'critical' || status === 'urgent';
   }).length;
 
-  // Get top 5 critical items for a super category
-  const getTopItems = (superCat: SuperCategoryType) => {
-    return groupedBySuperCategory[superCat].slice(0, TOP_ITEMS_LIMIT);
+  // Get items for expanded view
+  const getExpandedItems = () => {
+    if (!expandedView) return [];
+    
+    if (expandedView.type === 'category') {
+      return groupedByCategory[expandedView.id]?.items || [];
+    } else {
+      // Super category - get all items
+      return groupedBySuperCategory[expandedView.id as SuperCategoryType]
+        ?.flatMap(g => g.items) || [];
+    }
   };
 
-  const getRemainingCount = (superCat: SuperCategoryType) => {
-    return Math.max(0, groupedBySuperCategory[superCat].length - TOP_ITEMS_LIMIT);
-  };
-
-  // Dynamic form fields based on category type
-  const renderCategorySpecificFields = () => {
-    if (!selectedCategory) return null;
-
-    switch (selectedCategory.superCategory) {
-      case 'CONSUMIBLES_BASICOS':
-      case 'DECORACION_CONTABLE':
-        return (
-          <div className="p-4 rounded-xl bg-blue-500/10 space-y-4">
-            <h4 className="font-semibold flex items-center gap-2">
-              <Box className="h-4 w-4 text-blue-500" />
-              Stock por Pieza
-            </h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Cantidad de Piezas</Label>
-                <Input
-                  type="number"
-                  value={formData.stockPieces}
-                  onChange={(e) => setFormData({ ...formData, stockPieces: e.target.value })}
-                  placeholder="Ej. 100"
-                />
-              </div>
-              <div>
-                <Label>Stock Mínimo</Label>
-                <Input
-                  type="number"
-                  value={formData.minStockPieces}
-                  onChange={(e) => setFormData({ ...formData, minStockPieces: e.target.value })}
-                  placeholder="Ej. 20"
-                />
-              </div>
-            </div>
-            <div>
-              <Label>Uso semanal (piezas)</Label>
-              <Input
-                type="number"
-                value={formData.weeklyUsageRate}
-                onChange={(e) => setFormData({ ...formData, weeklyUsageRate: e.target.value })}
-                placeholder="Ej. 25"
-              />
-            </div>
-            {formData.purchaseCost && formData.stockPieces && (
-              <div className="flex items-center justify-between p-3 rounded-lg bg-background">
-                <span className="text-sm">Costo por pieza:</span>
-                <span className="text-lg font-bold text-blue-600">
-                  ${(parseFloat(formData.purchaseCost) / parseFloat(formData.stockPieces)).toFixed(2)}
-                </span>
-              </div>
-            )}
-          </div>
-        );
-
-      case 'QUIMICOS_GELES':
-        return (
-          <div className="p-4 rounded-xl bg-purple-500/10 space-y-4">
-            <h4 className="font-semibold flex items-center gap-2">
-              <Droplet className="h-4 w-4 text-purple-600" />
-              Calculadora de Gota
-            </h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Contenido Total</Label>
-                <Input
-                  type="number"
-                  value={formData.totalContent}
-                  onChange={(e) => setFormData({ ...formData, totalContent: e.target.value })}
-                  placeholder="500"
-                />
-              </div>
-              <div>
-                <Label>Unidad</Label>
-                <Select 
-                  value={formData.contentUnit} 
-                  onValueChange={(v) => setFormData({ ...formData, contentUnit: v as 'ml' | 'g' })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ml">ml (mililitros)</SelectItem>
-                    <SelectItem value="g">g (gramos)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label>Rendimiento Estimado (usos)</Label>
-              <Input
-                type="number"
-                value={formData.estimatedUses}
-                onChange={(e) => setFormData({ ...formData, estimatedUses: e.target.value })}
-                placeholder="Ej. 100 aplicaciones"
-              />
-            </div>
-            {formData.purchaseCost && formData.estimatedUses && (
-              <div className="flex items-center justify-between p-3 rounded-lg bg-background">
-                <span className="text-sm">Costo por uso (gota):</span>
-                <span className="text-lg font-bold text-purple-600">
-                  ${(parseFloat(formData.purchaseCost) / parseFloat(formData.estimatedUses)).toFixed(2)}
-                </span>
-              </div>
-            )}
-          </div>
-        );
-
-      case 'DECORACION_GRANEL':
-        return (
-          <div className="p-4 rounded-xl bg-rose-500/10 space-y-4">
-            <h4 className="font-semibold flex items-center gap-2">
-              <Eye className="h-4 w-4 text-rose-500" />
-              Estado Visual (Semáforo)
-            </h4>
-            <p className="text-sm text-muted-foreground">
-              No se cuenta por gramos. Solo indica visualmente cuánto queda.
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              {visualStatusOptions.map((option) => (
-                <Button
-                  key={option.value}
-                  type="button"
-                  variant={formData.visualStatus === option.value ? 'default' : 'outline'}
-                  className={formData.visualStatus === option.value ? option.color : ''}
-                  onClick={() => setFormData({ ...formData, visualStatus: option.value })}
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        );
-
-      case 'EQUIPO_HERRAMIENTAS':
-        return (
-          <div className="p-4 rounded-xl bg-amber-500/10 space-y-4">
-            <h4 className="font-semibold flex items-center gap-2">
-              <Clock className="h-4 w-4 text-amber-600" />
-              Depreciación Mensual
-            </h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Fecha de Compra</Label>
-                <Input
-                  type="date"
-                  value={formData.purchaseDate}
-                  onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>Vida Útil (Meses)</Label>
-                <Input
-                  type="number"
-                  value={formData.usefulLifeMonths}
-                  onChange={(e) => setFormData({ ...formData, usefulLifeMonths: e.target.value })}
-                  placeholder="Ej. 24"
-                />
-              </div>
-            </div>
-            {formData.purchaseCost && formData.usefulLifeMonths && (
-              <div className="flex items-center justify-between p-3 rounded-lg bg-background">
-                <span className="text-sm">Depreciación mensual:</span>
-                <span className="text-lg font-bold text-amber-600">
-                  ${(parseFloat(formData.purchaseCost) / parseFloat(formData.usefulLifeMonths)).toFixed(2)}/mes
-                </span>
-              </div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              💡 Este costo se agrega a tus gastos fijos mensuales
-            </p>
-          </div>
-        );
-
-      default:
-        return null;
+  const getExpandedTitle = () => {
+    if (!expandedView) return '';
+    
+    if (expandedView.type === 'category') {
+      const cat = inventoryCategories.find(c => c.id === expandedView.id);
+      return cat ? `${cat.icon} ${cat.name}` : '';
+    } else {
+      const info = superCategoryLabels[expandedView.id as SuperCategoryType];
+      return `${info.emoji} ${info.label}`;
     }
   };
 
   // Render item row
-  const renderItemRow = (item: InventoryItem, compact = false) => {
+  const renderItemRow = (item: InventoryItem) => {
     const status = getStockStatus(item);
     const isGranel = item.superCategory === 'DECORACION_GRANEL';
     
     return (
-      <div key={item.id} className={`flex items-center gap-2 ${compact ? 'p-1.5' : 'p-2'} rounded bg-muted/30 text-sm group`}>
-        <span className={`font-medium flex-1 truncate ${compact ? 'text-xs' : ''}`}>{item.name}</span>
-        <span className={`text-primary font-semibold ${compact ? 'text-xs' : 'text-xs'}`}>{getCostDisplay(item)}</span>
+      <div key={item.id} className="flex items-center gap-2 p-2 rounded bg-muted/30 text-sm group">
+        <span className="font-medium flex-1 truncate text-sm">{item.name}</span>
+        <span className="text-primary font-semibold text-xs">{getCostDisplay(item)}</span>
         {isGranel ? (
           <Select
             value={item.visualStatus}
@@ -578,6 +411,126 @@ export default function Inventario2() {
     );
   };
 
+  // Dynamic form fields based on category type
+  const renderCategorySpecificFields = () => {
+    if (!selectedCategory) return null;
+
+    switch (selectedCategory.superCategory) {
+      case 'CONSUMIBLES_BASICOS':
+      case 'DECORACION_CONTABLE':
+        return (
+          <div className="p-4 rounded-xl bg-blue-500/10 space-y-4">
+            <h4 className="font-semibold flex items-center gap-2">
+              <Box className="h-4 w-4 text-blue-500" />
+              Stock por Pieza
+            </h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Cantidad de Piezas</Label>
+                <Input type="number" value={formData.stockPieces} onChange={(e) => setFormData({ ...formData, stockPieces: e.target.value })} placeholder="100" />
+              </div>
+              <div>
+                <Label>Stock Mínimo</Label>
+                <Input type="number" value={formData.minStockPieces} onChange={(e) => setFormData({ ...formData, minStockPieces: e.target.value })} placeholder="20" />
+              </div>
+            </div>
+            <div>
+              <Label>Uso semanal (piezas)</Label>
+              <Input type="number" value={formData.weeklyUsageRate} onChange={(e) => setFormData({ ...formData, weeklyUsageRate: e.target.value })} placeholder="25" />
+            </div>
+            {formData.purchaseCost && formData.stockPieces && (
+              <div className="flex items-center justify-between p-3 rounded-lg bg-background">
+                <span className="text-sm">Costo por pieza:</span>
+                <span className="text-lg font-bold text-blue-600">${(parseFloat(formData.purchaseCost) / parseFloat(formData.stockPieces)).toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'QUIMICOS_GELES':
+        return (
+          <div className="p-4 rounded-xl bg-purple-500/10 space-y-4">
+            <h4 className="font-semibold flex items-center gap-2">
+              <Droplet className="h-4 w-4 text-purple-600" />
+              Calculadora de Gota
+            </h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Contenido Total</Label>
+                <Input type="number" value={formData.totalContent} onChange={(e) => setFormData({ ...formData, totalContent: e.target.value })} placeholder="500" />
+              </div>
+              <div>
+                <Label>Unidad</Label>
+                <Select value={formData.contentUnit} onValueChange={(v) => setFormData({ ...formData, contentUnit: v as 'ml' | 'g' })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ml">ml</SelectItem>
+                    <SelectItem value="g">g</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Rendimiento (usos)</Label>
+              <Input type="number" value={formData.estimatedUses} onChange={(e) => setFormData({ ...formData, estimatedUses: e.target.value })} placeholder="100" />
+            </div>
+            {formData.purchaseCost && formData.estimatedUses && (
+              <div className="flex items-center justify-between p-3 rounded-lg bg-background">
+                <span className="text-sm">Costo por uso:</span>
+                <span className="text-lg font-bold text-purple-600">${(parseFloat(formData.purchaseCost) / parseFloat(formData.estimatedUses)).toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'DECORACION_GRANEL':
+        return (
+          <div className="p-4 rounded-xl bg-rose-500/10 space-y-4">
+            <h4 className="font-semibold flex items-center gap-2">
+              <Eye className="h-4 w-4 text-rose-500" />
+              Estado Visual
+            </h4>
+            <div className="grid grid-cols-3 gap-2">
+              {visualStatusOptions.map((option) => (
+                <Button key={option.value} type="button" variant={formData.visualStatus === option.value ? 'default' : 'outline'} className={formData.visualStatus === option.value ? option.color : ''} onClick={() => setFormData({ ...formData, visualStatus: option.value })}>
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        );
+
+      case 'EQUIPO_HERRAMIENTAS':
+        return (
+          <div className="p-4 rounded-xl bg-amber-500/10 space-y-4">
+            <h4 className="font-semibold flex items-center gap-2">
+              <Clock className="h-4 w-4 text-amber-600" />
+              Depreciación
+            </h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Fecha Compra</Label>
+                <Input type="date" value={formData.purchaseDate} onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })} />
+              </div>
+              <div>
+                <Label>Vida Útil (Meses)</Label>
+                <Input type="number" value={formData.usefulLifeMonths} onChange={(e) => setFormData({ ...formData, usefulLifeMonths: e.target.value })} placeholder="24" />
+              </div>
+            </div>
+            {formData.purchaseCost && formData.usefulLifeMonths && (
+              <div className="flex items-center justify-between p-3 rounded-lg bg-background">
+                <span className="text-sm">Depreciación mensual:</span>
+                <span className="text-lg font-bold text-amber-600">${(parseFloat(formData.purchaseCost) / parseFloat(formData.usefulLifeMonths)).toFixed(2)}/mes</span>
+              </div>
+            )}
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <MainLayout>
       <div className="space-y-4">
@@ -589,7 +542,7 @@ export default function Inventario2() {
               Inventario Inteligente
             </h1>
             <p className="text-muted-foreground mt-1">
-              Vista compacta con los 5 items más críticos por categoría
+              Top 5 por categoría • Click para ver todos
             </p>
           </div>
           <div className="flex gap-2">
@@ -611,12 +564,11 @@ export default function Inventario2() {
                   <DialogTitle>Nuevo Producto</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 mt-4">
-                  {/* Step 1: Select Category */}
                   <div>
-                    <Label className="text-base font-semibold">1. Selecciona la Categoría</Label>
+                    <Label className="text-base font-semibold">1. Categoría</Label>
                     <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
                       <SelectTrigger className="mt-2">
-                        <SelectValue placeholder="Elige una categoría..." />
+                        <SelectValue placeholder="Elige categoría..." />
                       </SelectTrigger>
                       <SelectContent>
                         {Object.entries(superCategoryLabels).map(([superCat, info]) => {
@@ -624,9 +576,7 @@ export default function Inventario2() {
                           if (cats.length === 0) return null;
                           return (
                             <div key={superCat}>
-                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                                {info.emoji} {info.label}
-                              </div>
+                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{info.emoji} {info.label}</div>
                               {cats.map((cat) => (
                                 <SelectItem key={cat.id} value={cat.id}>
                                   <div className="flex items-center gap-2">
@@ -644,39 +594,24 @@ export default function Inventario2() {
 
                   {selectedCategory && (
                     <>
-                      {/* Step 2: Basic Info */}
                       <div className="space-y-4">
-                        <Label className="text-base font-semibold">2. Información del Producto</Label>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="col-span-2">
-                            <Label>Nombre del Producto</Label>
-                            <Input
-                              value={formData.name}
-                              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                              placeholder="Ej. Monómero Acrílico"
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <Label>Costo del Producto ($)</Label>
-                            <Input
-                              type="number"
-                              value={formData.purchaseCost}
-                              onChange={(e) => setFormData({ ...formData, purchaseCost: e.target.value })}
-                              placeholder="500"
-                            />
-                          </div>
+                        <Label className="text-base font-semibold">2. Producto</Label>
+                        <div>
+                          <Label>Nombre</Label>
+                          <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Monómero Acrílico" />
+                        </div>
+                        <div>
+                          <Label>Costo ($)</Label>
+                          <Input type="number" value={formData.purchaseCost} onChange={(e) => setFormData({ ...formData, purchaseCost: e.target.value })} placeholder="500" />
                         </div>
                       </div>
 
-                      {/* Step 3: Category-specific fields */}
                       <div className="space-y-2">
-                        <Label className="text-base font-semibold">3. Detalles según tipo</Label>
+                        <Label className="text-base font-semibold">3. Detalles</Label>
                         {renderCategorySpecificFields()}
                       </div>
 
-                      <Button onClick={handleAddItem} className="w-full">
-                        Agregar Producto
-                      </Button>
+                      <Button onClick={handleAddItem} className="w-full">Agregar Producto</Button>
                     </>
                   )}
                 </div>
@@ -685,7 +620,7 @@ export default function Inventario2() {
           </div>
         </div>
 
-        {/* Stats Cards - Compact inline */}
+        {/* Stats */}
         <div className="flex flex-wrap gap-3 animate-fade-in">
           <Badge variant="secondary" className="py-1.5 px-3 text-sm">
             <Package className="h-3.5 w-3.5 mr-1.5" />
@@ -704,37 +639,21 @@ export default function Inventario2() {
 
         {/* Search and Filters */}
         <div className="space-y-3 animate-fade-in">
-          {/* Search Input */}
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar producto..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
+            <Input placeholder="Buscar producto..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
           </div>
 
-          {/* Super Category Filter Badges */}
           <div className="flex flex-wrap gap-2">
-            <Badge 
-              variant={isAllSelected ? "default" : "outline"} 
-              className="py-1.5 px-3 cursor-pointer hover:bg-primary/90 transition-colors"
-              onClick={clearFilters}
-            >
+            <Badge variant={isAllSelected ? "default" : "outline"} className="py-1.5 px-3 cursor-pointer hover:bg-primary/90 transition-colors" onClick={clearFilters}>
               Todas
             </Badge>
             {Object.entries(superCategoryLabels).map(([key, info]) => {
               const superCat = key as SuperCategoryType;
               const isSelected = selectedSuperCategories.has(superCat);
-              const count = groupedBySuperCategory[superCat].length;
+              const count = groupedBySuperCategory[superCat].reduce((sum, g) => sum + g.items.length, 0);
               return (
-                <Badge 
-                  key={key} 
-                  variant={isSelected ? "default" : "outline"} 
-                  className="py-1.5 px-3 cursor-pointer hover:bg-primary/90 transition-colors gap-1"
-                  onClick={() => toggleSuperCategoryFilter(superCat)}
-                >
+                <Badge key={key} variant={isSelected ? "default" : "outline"} className="py-1.5 px-3 cursor-pointer hover:bg-primary/90 transition-colors gap-1" onClick={() => toggleSuperCategoryFilter(superCat)}>
                   <span>{info.emoji}</span>
                   <span>{info.label}</span>
                   <span className="ml-1 opacity-70">({count})</span>
@@ -744,68 +663,76 @@ export default function Inventario2() {
           </div>
         </div>
 
-        {/* Clean Dashboard Cards - Top 5 per Super Category */}
+        {/* Cards Grid - Grouped by Category within Super Category */}
         <div className={`grid gap-4 ${isAllSelected ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
           {filteredSuperCategories.map((superCat) => {
+            const categoryGroups = groupedBySuperCategory[superCat];
             const info = superCategoryLabels[superCat];
-            const items = groupedBySuperCategory[superCat];
-            const topItems = getTopItems(superCat);
-            const remainingCount = getRemainingCount(superCat);
-            const criticalCount = items.filter(i => ['critical', 'urgent'].includes(getStockStatus(i))).length;
             
-            if (items.length === 0) return null;
-
-            return (
-              <Card key={superCat} className="shadow-card animate-fade-in overflow-hidden">
-                <CardHeader className="py-2.5 px-3 bg-muted/30">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{info.emoji}</span>
-                    <CardTitle className="text-sm flex-1">{info.label}</CardTitle>
-                    <Badge variant="secondary" className="text-xs">{items.length}</Badge>
-                    {criticalCount > 0 && (
-                      <Badge variant="destructive" className="text-xs">{criticalCount}</Badge>
+            return categoryGroups.map(({ category, items }) => {
+              if (items.length === 0) return null;
+              
+              const topItems = items.slice(0, TOP_ITEMS_LIMIT);
+              const remainingCount = Math.max(0, items.length - TOP_ITEMS_LIMIT);
+              const criticalCount = items.filter(i => ['critical', 'urgent'].includes(getStockStatus(i))).length;
+              
+              return (
+                <Card 
+                  key={category.id} 
+                  className="shadow-card animate-fade-in overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                  onClick={() => items.length > TOP_ITEMS_LIMIT && setExpandedView({ type: 'category', id: category.id })}
+                >
+                  <CardHeader className="py-2 px-3 bg-muted/30">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-6 h-6 rounded ${category.color} flex items-center justify-center text-xs`}>
+                        {category.icon}
+                      </div>
+                      <CardTitle className="text-sm flex-1">{category.name}</CardTitle>
+                      <Badge variant="secondary" className="text-xs">{items.length}</Badge>
+                      {criticalCount > 0 && <Badge variant="destructive" className="text-xs">{criticalCount}</Badge>}
+                      {items.length > TOP_ITEMS_LIMIT && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                    </div>
+                    <CardDescription className="text-xs flex items-center gap-1">
+                      <span>{info.emoji}</span> {info.description}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-2">
+                    <div className="space-y-1">
+                      {topItems.map((item) => renderItemRow(item))}
+                    </div>
+                    
+                    {remainingCount > 0 && (
+                      <Button
+                        variant="ghost"
+                        className="w-full mt-2 text-xs h-8 text-muted-foreground hover:text-foreground"
+                        onClick={(e) => { e.stopPropagation(); setExpandedView({ type: 'category', id: category.id }); }}
+                      >
+                        Ver {remainingCount} más
+                      </Button>
                     )}
-                  </div>
-                  <CardDescription className="text-xs mt-0.5">{info.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="p-2">
-                  <div className="space-y-1">
-                    {topItems.map((item) => renderItemRow(item, true))}
-                  </div>
-                  
-                  {remainingCount > 0 && (
-                    <Button
-                      variant="ghost"
-                      className="w-full mt-2 text-xs h-8 text-muted-foreground hover:text-foreground"
-                      onClick={() => setExpandedCategory({ superCategory: superCat })}
-                    >
-                      <ChevronDown className="h-3 w-3 mr-1" />
-                      Ver {remainingCount} más
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            );
+                  </CardContent>
+                </Card>
+              );
+            });
           })}
         </div>
 
         {/* Expanded View Modal */}
-        <Dialog open={expandedCategory !== null} onOpenChange={(open) => !open && setExpandedCategory(null)}>
+        <Dialog open={expandedView !== null} onOpenChange={(open) => !open && setExpandedView(null)}>
           <DialogContent className="sm:max-w-2xl max-h-[80vh]">
-            {expandedCategory && (
+            {expandedView && (
               <>
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
-                    <span className="text-xl">{superCategoryLabels[expandedCategory.superCategory].emoji}</span>
-                    {superCategoryLabels[expandedCategory.superCategory].label}
+                    {getExpandedTitle()}
                     <Badge variant="secondary" className="ml-2">
-                      {groupedBySuperCategory[expandedCategory.superCategory].length} items
+                      {getExpandedItems().length} productos
                     </Badge>
                   </DialogTitle>
                 </DialogHeader>
                 <ScrollArea className="max-h-[60vh] pr-4">
                   <div className="space-y-1.5">
-                    {groupedBySuperCategory[expandedCategory.superCategory].map((item) => renderItemRow(item))}
+                    {getExpandedItems().map((item) => renderItemRow(item))}
                   </div>
                 </ScrollArea>
               </>
