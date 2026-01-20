@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Package,
   Plus,
@@ -29,10 +29,8 @@ import {
   Info,
   Trash2,
   Box,
-  Sparkles,
   Settings,
   Eye,
-  CircleDot,
   Search,
   ChevronRight,
 } from "lucide-react";
@@ -44,7 +42,6 @@ import {
   VisualStockStatus 
 } from "@/stores/businessConfig";
 import { toast } from "@/hooks/use-toast";
-import { Link } from "react-router-dom";
 
 const superCategoryLabels: Record<SuperCategoryType, { label: string; emoji: string; description: string }> = {
   CONSUMIBLES_BASICOS: { label: 'Consumibles Básicos', emoji: '🔵', description: 'Stock exacto por pieza' },
@@ -63,15 +60,12 @@ const visualStatusOptions: { value: VisualStockStatus; label: string; color: str
 const TOP_ITEMS_LIMIT = 5;
 
 export default function Inventario2() {
+  const navigate = useNavigate();
   const { inventory, inventoryCategories, addInventoryItem, updateInventoryItem, removeInventoryItem } = useBusinessConfig();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSuperCategories, setSelectedSuperCategories] = useState<Set<SuperCategoryType>>(new Set());
-  
-  // Expanded view - can be a category or super category
-  const [expandedView, setExpandedView] = useState<{ type: 'category' | 'superCategory'; id: string } | null>(null);
-  
   // Dynamic form state based on category
   const [formData, setFormData] = useState({
     name: '',
@@ -342,31 +336,6 @@ export default function Inventario2() {
     const status = getStockStatus(i);
     return status === 'critical' || status === 'urgent';
   }).length;
-
-  // Get items for expanded view
-  const getExpandedItems = () => {
-    if (!expandedView) return [];
-    
-    if (expandedView.type === 'category') {
-      return groupedByCategory[expandedView.id]?.items || [];
-    } else {
-      // Super category - get all items
-      return groupedBySuperCategory[expandedView.id as SuperCategoryType]
-        ?.flatMap(g => g.items) || [];
-    }
-  };
-
-  const getExpandedTitle = () => {
-    if (!expandedView) return '';
-    
-    if (expandedView.type === 'category') {
-      const cat = inventoryCategories.find(c => c.id === expandedView.id);
-      return cat ? `${cat.icon} ${cat.name}` : '';
-    } else {
-      const info = superCategoryLabels[expandedView.id as SuperCategoryType];
-      return `${info.emoji} ${info.label}`;
-    }
-  };
 
   // Render item row
   const renderItemRow = (item: InventoryItem) => {
@@ -680,7 +649,7 @@ export default function Inventario2() {
                 <Card 
                   key={category.id} 
                   className="shadow-card animate-fade-in overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
-                  onClick={() => items.length > TOP_ITEMS_LIMIT && setExpandedView({ type: 'category', id: category.id })}
+                  onClick={() => navigate(`/inventario/categoria/${category.id}`)}
                 >
                   <CardHeader className="py-2 px-3 bg-muted/30">
                     <div className="flex items-center gap-2">
@@ -690,7 +659,7 @@ export default function Inventario2() {
                       <CardTitle className="text-sm flex-1">{category.name}</CardTitle>
                       <Badge variant="secondary" className="text-xs">{items.length}</Badge>
                       {criticalCount > 0 && <Badge variant="destructive" className="text-xs">{criticalCount}</Badge>}
-                      {items.length > TOP_ITEMS_LIMIT && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <CardDescription className="text-xs flex items-center gap-1">
                       <span>{info.emoji}</span> {info.description}
@@ -705,7 +674,7 @@ export default function Inventario2() {
                       <Button
                         variant="ghost"
                         className="w-full mt-2 text-xs h-8 text-muted-foreground hover:text-foreground"
-                        onClick={(e) => { e.stopPropagation(); setExpandedView({ type: 'category', id: category.id }); }}
+                        onClick={(e) => { e.stopPropagation(); navigate(`/inventario/categoria/${category.id}`); }}
                       >
                         Ver {remainingCount} más
                       </Button>
@@ -716,30 +685,6 @@ export default function Inventario2() {
             });
           })}
         </div>
-
-        {/* Expanded View Modal */}
-        <Dialog open={expandedView !== null} onOpenChange={(open) => !open && setExpandedView(null)}>
-          <DialogContent className="sm:max-w-2xl max-h-[80vh]">
-            {expandedView && (
-              <>
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    {getExpandedTitle()}
-                    <Badge variant="secondary" className="ml-2">
-                      {getExpandedItems().length} productos
-                    </Badge>
-                  </DialogTitle>
-                </DialogHeader>
-                <ScrollArea className="max-h-[60vh] pr-4">
-                  <div className="space-y-1.5">
-                    {getExpandedItems().map((item) => renderItemRow(item))}
-                  </div>
-                </ScrollArea>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
-
         {/* Legend */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in">
           <Info className="h-4 w-4" />
