@@ -2,28 +2,39 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
-  ShoppingCart,
+  Timer,
   Package,
-  TrendingUp,
-  Settings,
+  Settings2,
   Menu,
   X,
-  Sparkles,
+  Palette,
+  BarChart3,
+  MenuSquare,
+  DollarSign,
+  FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/hooks/useTheme";
+import logoEntaltek from "@/assets/logo_entaltek.png";
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Nueva Venta", url: "/nueva-venta", icon: ShoppingCart },
+  { title: "Servicio en Curso", url: "/servicio", icon: Timer },
+  { title: "Menú Servicios", url: "/menu-servicios", icon: MenuSquare },
   { title: "Inventario", url: "/inventario", icon: Package },
-  { title: "Finanzas CFO", url: "/finanzas", icon: TrendingUp },
-  { title: "Configuración", url: "/configuracion", icon: Settings },
+  { title: "Categorías", url: "/gestion-categorias", icon: FolderOpen },
+  { title: "Extras y Arte", url: "/extras", icon: Palette },
+  { title: "Catálogo Diseños", url: "/catalogo", icon: Palette },
+  { title: "Reportes", url: "/reportes", icon: BarChart3 },
+  { title: "Costos y Gastos", url: "/costos-gastos", icon: DollarSign },
+  { title: "Configuración", url: "/configuracion", icon: Settings2 },
 ];
 
 export function AppSidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const { theme } = useTheme();
 
   return (
     <>
@@ -55,14 +66,20 @@ export function AppSidebar() {
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="flex items-center gap-3 px-6 py-6 border-b border-sidebar-border">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-button">
-              <Sparkles className="h-5 w-5 text-primary-foreground" />
-            </div>
+            {theme === 'corporate' ? (
+              <img src={logoEntaltek} alt="Entaltek" className="h-10 w-10 object-contain" />
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-button">
+                <span className="text-lg">💅</span>
+              </div>
+            )}
             <div>
               <h1 className="text-lg font-bold text-sidebar-foreground tracking-tight">
                 Entaltek
               </h1>
-              <p className="text-xs text-sidebar-foreground/70">Nail Studio</p>
+              <p className="text-xs text-sidebar-foreground/70">
+                {theme === 'corporate' ? 'Business Suite' : 'Nail Studio'}
+              </p>
             </div>
           </div>
 

@@ -4,9 +4,61 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ENTALTEK GIRLY PROFESSIONAL - Design System */
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap');
+
+/* Sansation Font Family - Entaltek Corporate */
+@font-face {
+  font-family: 'Sansation';
+  src: url('/fonts/Sansation_Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sansation';
+  src: url('/fonts/Sansation_Light_Italic.ttf') format('truetype');
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sansation';
+  src: url('/fonts/Sansation_Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sansation';
+  src: url('/fonts/Sansation_Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sansation';
+  src: url('/fonts/Sansation_Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sansation';
+  src: url('/fonts/Sansation_Bold_Italic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* ENTALTEK DESIGN SYSTEM - Dual Theme Support */
 
 @layer base {
+  /* ============ GIRLY THEME (Default) ============ */
   :root {
     /* Entaltek Girly Palette */
     --background: 330 100% 98%; /* #FDF2F8 - Cloud White with pink tint */
@@ -38,7 +90,7 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Border - Dark Raspberry #BE185D */
+    /* Border */
     --border: 330 30% 88%;
     --input: 330 30% 88%;
     --ring: 292 84% 61%;
@@ -71,6 +123,77 @@
     --shadow-soft: 0 4px 20px -4px hsl(330 86% 70% / 0.15);
     --shadow-card: 0 2px 12px -2px hsl(297 91% 16% / 0.08);
     --shadow-button: 0 4px 14px -2px hsl(292 84% 61% / 0.35);
+
+    /* Font family */
+    --font-family: 'Quicksand', sans-serif;
+  }
+
+  /* ============ ENTALTEK CORPORATE THEME ============ */
+  .theme-corporate {
+    /* Corporate Palette - Blues */
+    --background: 0 0% 100%; /* #FFFFFF - Pure white */
+    --foreground: 207 72% 20%; /* #013762 - Azul Marino */
+
+    --card: 0 0% 100%;
+    --card-foreground: 207 72% 20%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 207 72% 20%;
+
+    /* Primary - Azul Brillante #0179B1 */
+    --primary: 197 99% 35%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Azul Marino #013762 */
+    --secondary: 207 72% 20%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* Muted surfaces */
+    --muted: 197 30% 95%;
+    --muted-foreground: 207 40% 40%;
+
+    /* Accent - Azul Cielo Claro #47DAD6 */
+    --accent: 178 65% 57%;
+    --accent-foreground: 207 72% 20%;
+
+    /* Destructive */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Border - Azul Técnico #004C7A */
+    --border: 197 30% 85%;
+    --input: 197 30% 85%;
+    --ring: 197 99% 35%;
+
+    /* Sidebar - Azul Marino theme */
+    --sidebar-background: 207 72% 20%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 178 65% 57%;
+    --sidebar-primary-foreground: 207 72% 20%;
+    --sidebar-accent: 202 100% 24%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 202 100% 24%;
+    --sidebar-ring: 178 65% 57%;
+
+    /* Custom Corporate tokens */
+    --entaltek-magenta: 197 99% 35%;
+    --entaltek-plum: 207 72% 20%;
+    --entaltek-rose: 178 65% 57%;
+    --entaltek-raspberry: 202 100% 24%;
+    --entaltek-cream: 0 0% 100%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(197 99% 35%), hsl(178 65% 57%));
+    --gradient-sidebar: linear-gradient(180deg, hsl(207 72% 20%), hsl(207 72% 15%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(197 30% 98%));
+    
+    /* Shadows */
+    --shadow-soft: 0 4px 20px -4px hsl(197 99% 35% / 0.15);
+    --shadow-card: 0 2px 12px -2px hsl(207 72% 20% / 0.08);
+    --shadow-button: 0 4px 14px -2px hsl(197 99% 35% / 0.35);
+
+    /* Font family - Sansation Corporate */
+    --font-family: 'Sansation', sans-serif;
   }
 
   .dark {
@@ -119,12 +242,12 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Quicksand', sans-serif;
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-family);
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Quicksand', sans-serif;
+    font-family: var(--font-family);
     font-weight: 600;
   }
 }
