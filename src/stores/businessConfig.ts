@@ -186,6 +186,7 @@ interface BusinessConfigState {
   
   // Inventory Categories
   inventoryCategories: InventoryCategory[];
+  setInventoryCategories: (categories: InventoryCategory[]) => void;
   
   // Inventory
   inventory: InventoryItem[];
@@ -259,110 +260,10 @@ interface BusinessConfigState {
   };
 }
 
-// Default inventory categories based on the new super category structure
-const defaultInventoryCategories: InventoryCategory[] = [
-  // CONSUMIBLES_BASICOS
-  {
-    id: 'limas-pulidores',
-    name: 'Limas y Pulidores',
-    superCategory: 'CONSUMIBLES_BASICOS',
-    description: 'Limas, buffers, pulidores desechables',
-    color: 'bg-blue-500',
-    icon: '📏',
-  },
-  {
-    id: 'tips-moldes',
-    name: 'Tips y Moldes',
-    superCategory: 'CONSUMIBLES_BASICOS',
-    description: 'Tips Soft Gel, moldes, formas',
-    color: 'bg-blue-400',
-    icon: '💅',
-  },
-  {
-    id: 'desechables',
-    name: 'Desechables',
-    superCategory: 'CONSUMIBLES_BASICOS',
-    description: 'Guantes, servitoallas, cubrebocas',
-    color: 'bg-blue-300',
-    icon: '🧤',
-  },
-  // QUIMICOS_GELES
-  {
-    id: 'acrilicos',
-    name: 'Acrílicos',
-    superCategory: 'QUIMICOS_GELES',
-    description: 'Monómero, polvo acrílico, primer',
-    color: 'bg-purple-500',
-    icon: '🧪',
-  },
-  {
-    id: 'geles',
-    name: 'Geles y Rubber',
-    superCategory: 'QUIMICOS_GELES',
-    description: 'Base coat, top coat, rubber base, gel color',
-    color: 'bg-purple-400',
-    icon: '✨',
-  },
-  {
-    id: 'liquidos',
-    name: 'Líquidos y Solventes',
-    superCategory: 'QUIMICOS_GELES',
-    description: 'Acetona, alcohol, removedor',
-    color: 'bg-purple-300',
-    icon: '💧',
-  },
-  {
-    id: 'spa-pedicura',
-    name: 'Spa y Pedicura',
-    superCategory: 'QUIMICOS_GELES',
-    description: 'Sales, jelly spa, exfoliantes, cremas',
-    color: 'bg-teal-500',
-    icon: '🦶',
-  },
-  // DECORACION_CONTABLE
-  {
-    id: 'charms-accesorios',
-    name: 'Charms y Accesorios',
-    superCategory: 'DECORACION_CONTABLE',
-    description: 'Charms, moños, stickers, cristales grandes',
-    color: 'bg-pink-500',
-    icon: '🎀',
-  },
-  // DECORACION_GRANEL
-  {
-    id: 'efectos-polvo',
-    name: 'Efectos y Polvos',
-    superCategory: 'DECORACION_GRANEL',
-    description: 'Glitter, efecto espejo, aurora, naturaleza muerta',
-    color: 'bg-rose-400',
-    icon: '🌟',
-  },
-  {
-    id: 'foils-laminas',
-    name: 'Foils y Láminas',
-    superCategory: 'DECORACION_GRANEL',
-    description: 'Foil transfer, papel de arroz, láminas',
-    color: 'bg-rose-300',
-    icon: '🎨',
-  },
-  // EQUIPO_HERRAMIENTAS
-  {
-    id: 'equipo-electrico',
-    name: 'Equipo Eléctrico',
-    superCategory: 'EQUIPO_HERRAMIENTAS',
-    description: 'Drill, lámpara UV/LED, aspiradora',
-    color: 'bg-amber-500',
-    icon: '🔌',
-  },
-  {
-    id: 'herramientas',
-    name: 'Herramientas',
-    superCategory: 'EQUIPO_HERRAMIENTAS',
-    description: 'Pinceles, cortaúñas, espátulas',
-    color: 'bg-amber-400',
-    icon: '🔧',
-  },
-];
+export async function fetchCategories() {
+  const res = await fetch(`${import.meta.env.VITE_API_URL}/categories`);
+  return res.json();
+}
 
 // Default extras (Nail Art pricing) - now with types
 const defaultExtras: ExtraItem[] = [
@@ -539,7 +440,8 @@ export const useBusinessConfig = create<BusinessConfigState>()(
       teamMembers: defaultTeamMembers,
       commissionBase: 'gross',
       
-      inventoryCategories: defaultInventoryCategories,
+      inventoryCategories: [],
+      setInventoryCategories: (categories) => set({ inventoryCategories: categories }),
       inventory: defaultInventory,
       extras: defaultExtras,
       nailArtTiers: defaultNailArtTiers,
