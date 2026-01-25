@@ -1,8 +1,14 @@
-import { initializeApp, getApps } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
+import * as admin from "firebase-admin";
 
-const app = getApps().length === 0 ? initializeApp() : getApps()[0];
+if (!admin.apps.length) {
+  admin.initializeApp({
+    projectId: process.env.GCLOUD_PROJECT || "athleek-sys",
+  });
+}
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+export const db = admin.firestore();
+
+// SOLO LOG, NO settings()
+if (process.env.FIRESTORE_EMULATOR_HOST) {
+  console.log("🧪 Firestore EMULATOR:", process.env.FIRESTORE_EMULATOR_HOST);
+}
