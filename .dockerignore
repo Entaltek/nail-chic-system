@@ -1,0 +1,7 @@
+node_modules
+dist
+.firebase
+.git
+.gitignore
+Dockerfile
+docker-compose.yml

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +34,7 @@ import {
   ChevronRight,
   Package,
 } from "lucide-react";
-import { useBusinessConfig, InventoryCategory, SuperCategoryType } from "@/stores/businessConfig";
+import { useBusinessConfig, InventoryCategory, SuperCategoryType, fetchCategories } from "@/stores/businessConfig";
 import { toast } from "@/hooks/use-toast";
 
 const superCategoryInfo: Record<SuperCategoryType, { label: string; description: string; icon: React.ReactNode; color: string; emoji: string }> = {
@@ -96,7 +96,27 @@ const iconOptions = ['🧤', '💅', '✨', '🦶', '🔧', '💎', '🎨', '�
 const TOP_ITEMS_LIMIT = 5;
 
 export default function GestionCategorias() {
-  const { inventoryCategories, addInventoryCategory, updateInventoryCategory, removeInventoryCategory, inventory } = useBusinessConfig();
+  const {
+    inventoryCategories,
+    setInventoryCategories,
+    addInventoryCategory,
+    updateInventoryCategory,
+    removeInventoryCategory,
+    inventory
+  } = useBusinessConfig();
+
+  useEffect(() => {
+    fetchCategories()
+      .then(setInventoryCategories)
+      .catch(() => {
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar las categorías",
+          variant: "destructive",
+        });
+      });
+  }, [setInventoryCategories]);
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<InventoryCategory | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
