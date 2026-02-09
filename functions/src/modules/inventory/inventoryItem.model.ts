@@ -17,12 +17,13 @@ export const StockStatus = z.enum([
 
 // 🔹 Esquema principal de validación
 export const InventoryItemSchema = z.object({
-  id: z.string().min(1),
+  id: z.string().min(1),        // id lógico (opcional)
+  docId: z.string().optional(), // id real de Firestore
 
   name: z.string().min(2),
   description: z.string().optional(),
 
-  categoryId: z.string().min(1), // referencia a inventoryCategories
+  categoryId: z.string().min(1),
 
   brand: z.string().optional(),
 
