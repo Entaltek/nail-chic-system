@@ -12,6 +12,7 @@ import {
   MenuSquare,
   DollarSign,
   FolderOpen,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ const navItems = [
   { title: "Extras y Arte", url: "/extras", icon: Palette },
   { title: "Catálogo Diseños", url: "/catalogo", icon: Palette },
   { title: "Reportes", url: "/reportes", icon: BarChart3 },
+  { title: "Clientes", url: "/clientes", icon: Users },
   { title: "Costos y Gastos", url: "/costos-gastos", icon: DollarSign },
   { title: "Configuración", url: "/configuracion", icon: Settings2 },
 ];
