@@ -237,19 +237,23 @@ export default function Clientes() {
 
   return (
     <MainLayout>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Clientes</h1>
-          <p className="text-sm text-muted-foreground mt-1">Administra tus clientes y su tipo (nuevo/frecuente)</p>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-fade-in">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
+              <Users className="h-8 w-8 text-primary" />
+              Clientes
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">Administra tus clientes y su tipo (nuevo/frecuente)</p>
+          </div>
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" /> Agregar cliente
+          </Button>
         </div>
-        <Button onClick={() => setAddOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" /> Agregar cliente
-        </Button>
-      </div>
 
-      {/* Filters */}
-      <Card>
+        {/* Filters */}
+        <Card className="shadow-card animate-fade-in">
         <div className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -318,6 +322,7 @@ export default function Clientes() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </MainLayout>
   );
 }
