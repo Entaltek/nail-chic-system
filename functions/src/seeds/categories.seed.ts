@@ -78,9 +78,10 @@ export async function seedCategories() {
   const batch = db.batch();
 
   categories.forEach((category) => {
-    const ref = db.collection('inventoryCategories').doc(category.id);
+    const { id, ...data } = category;
+    const ref = db.collection('inventoryCategories').doc(id);
     batch.set(ref, {
-      ...category,
+      ...data,
       createdAt: new Date(),
     });
   });
