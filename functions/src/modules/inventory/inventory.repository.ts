@@ -5,18 +5,33 @@ const collection = db.collection("inventoryItems");
 
 export class InventoryRepository {
   async create(item: InventoryItem) {
-    await collection.doc(item.id).set(item);
-    return item;
+    const { id, ...data } = item as any;
+
+    const docRef = await collection.add(data);
+
+    return {
+      id: docRef.id,
+      ...data
+    };
   }
 
   async getAll() {
     const snapshot = await collection.orderBy("name").get();
-    return snapshot.docs.map(doc => doc.data() as InventoryItem);
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...(doc.data() as Omit<InventoryItem, "id">)
+    }));
   }
 
   async getById(id: string) {
     const doc = await collection.doc(id).get();
-    return doc.exists ? (doc.data() as InventoryItem) : null;
+
+    if (!doc.exists) return null;
+
+    return {
+      id: doc.id,
+      ...(doc.data() as Omit<InventoryItem, "id">)
+    };
   }
 
   async update(id: string, data: Partial<InventoryItem>) {
