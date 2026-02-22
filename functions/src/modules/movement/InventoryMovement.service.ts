@@ -68,7 +68,6 @@ export class InventoryMovementService {
 
     // CREAR MOVIMIENTO
     const movement: any = {
-      id: crypto.randomUUID(),
       itemId: data.itemId,
       type: data.type,
       quantity: data.quantity,
@@ -79,9 +78,12 @@ export class InventoryMovementService {
       movement.reason = data.reason;
     }
 
-    await this.repo.create(movement);
+    const docRef = await this.repo.create(movement);
 
-    return movement;
+    return {
+      id: docRef.id,
+      ...movement
+    };
   }
 
   async getAllMovements() {
