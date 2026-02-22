@@ -5,8 +5,8 @@ const collection = db.collection("inventory_movements");
 
 export class InventoryMovementRepository {
   async create(data: InventoryMovement) {
-    await collection.doc(data.id).set(data);
-    return data;
+    const docRef = await collection.add(data);
+    return docRef;
   }
 
   async findAll() {
