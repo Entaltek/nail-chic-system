@@ -59,6 +59,7 @@ export default function Clientes() {
   const [filter, setFilter] = useState<FilterType>("Todos");
   const [viewState] = useState<ViewState>("data"); // toggle for demo
   const [addOpen, setAddOpen] = useState(false);
+  const [editClientId, setEditClientId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
 
   const filtered = clients.filter((c) => {
@@ -69,7 +70,9 @@ export default function Clientes() {
     return matchesSearch && matchesFilter;
   });
 
-  const handleEdit = (c: Client) => toast.info(`Editar cliente: ${fullName(c)} (pendiente)`);
+  const handleEdit = (c: Client) => {
+    setEditClientId(c.id);
+  };
   const handleView = (c: Client) => toast.info(`Ver detalle: ${fullName(c)} (pendiente)`);
   const confirmDelete = () => {
     if (!deleteTarget) return;
@@ -305,6 +308,25 @@ export default function Clientes() {
           setClients((prev) => [newClient, ...prev]);
           setAddOpen(false);
           toast.success(`Cliente ${data.nombres} ${data.apellidoPaterno} registrado`);
+        }}
+      />
+
+      {/* Edit client form */}
+      <ClientFormDialog
+        open={!!editClientId}
+        onOpenChange={(open) => { if (!open) setEditClientId(null); }}
+        editClientId={editClientId}
+        onSave={(data: ClientFormValues) => {
+          // TODO: Replace with real Firebase updateDoc
+          setClients((prev) =>
+            prev.map((c) =>
+              c.id === editClientId
+                ? { ...c, nombres: data.nombres, apellidoPaterno: data.apellidoPaterno, apellidoMaterno: data.apellidoMaterno || "" }
+                : c
+            )
+          );
+          setEditClientId(null);
+          toast.success(`Cliente ${data.nombres} ${data.apellidoPaterno} actualizado`);
         }}
       />
 
