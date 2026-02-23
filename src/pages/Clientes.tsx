@@ -9,7 +9,7 @@ import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -19,7 +19,6 @@ import {
   Plus, Search, Pencil, Trash2, Eye, Users, MoreVertical, AlertCircle, UserPlus, RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { AddClientDialog } from "@/components/clientes/AddClientDialog"; // client form
 
 // --- Types ---
 type ClientType = "Nuevo" | "Frecuente";
@@ -29,8 +28,6 @@ interface Client {
   nombres: string;
   apellidoPaterno: string;
   apellidoMaterno: string;
-  telefono: string;
-  correo: string;
   tipo: ClientType;
 }
 
@@ -38,16 +35,16 @@ interface Client {
 // TODO: Reemplazar por fetch real → GET /api/clients_list
 // Campos esperados: nombres, apellidoPaterno, apellidoMaterno, tipo
 const initialClients: Client[] = [
-  { id: "1", nombres: "María Fernanda", apellidoPaterno: "García", apellidoMaterno: "López", telefono: "5551234567", correo: "maria@email.com", tipo: "Frecuente" },
-  { id: "2", nombres: "Ana Sofía", apellidoPaterno: "Hernández", apellidoMaterno: "Ruiz", telefono: "5559876543", correo: "", tipo: "Nuevo" },
-  { id: "3", nombres: "Valeria", apellidoPaterno: "Martínez", apellidoMaterno: "Cano", telefono: "5552345678", correo: "valeria@mail.com", tipo: "Frecuente" },
-  { id: "4", nombres: "Lucía", apellidoPaterno: "Gómez", apellidoMaterno: "Santos", telefono: "5553456789", correo: "", tipo: "Nuevo" },
-  { id: "5", nombres: "Daniela", apellidoPaterno: "Ramírez", apellidoMaterno: "Flores", telefono: "5554567890", correo: "dani@mail.com", tipo: "Frecuente" },
-  { id: "6", nombres: "Paola", apellidoPaterno: "Torres", apellidoMaterno: "Vega", telefono: "5555678901", correo: "", tipo: "Nuevo" },
-  { id: "7", nombres: "Ximena", apellidoPaterno: "Navarro", apellidoMaterno: "Ortiz", telefono: "5556789012", correo: "ximena@mail.com", tipo: "Frecuente" },
-  { id: "8", nombres: "Regina", apellidoPaterno: "Morales", apellidoMaterno: "Cruz", telefono: "5557890123", correo: "", tipo: "Nuevo" },
-  { id: "9", nombres: "Camila", apellidoPaterno: "Ríos", apellidoMaterno: "Chávez", telefono: "5558901234", correo: "camila@mail.com", tipo: "Frecuente" },
-  { id: "10", nombres: "Sofía", apellidoPaterno: "Mendoza", apellidoMaterno: "Pérez", telefono: "5559012345", correo: "", tipo: "Nuevo" },
+  { id: "1", nombres: "María Fernanda", apellidoPaterno: "García", apellidoMaterno: "López", tipo: "Frecuente" },
+  { id: "2", nombres: "Ana Sofía", apellidoPaterno: "Hernández", apellidoMaterno: "Ruiz", tipo: "Nuevo" },
+  { id: "3", nombres: "Valeria", apellidoPaterno: "Martínez", apellidoMaterno: "Cano", tipo: "Frecuente" },
+  { id: "4", nombres: "Lucía", apellidoPaterno: "Gómez", apellidoMaterno: "Santos", tipo: "Nuevo" },
+  { id: "5", nombres: "Daniela", apellidoPaterno: "Ramírez", apellidoMaterno: "Flores", tipo: "Frecuente" },
+  { id: "6", nombres: "Paola", apellidoPaterno: "Torres", apellidoMaterno: "Vega", tipo: "Nuevo" },
+  { id: "7", nombres: "Ximena", apellidoPaterno: "Navarro", apellidoMaterno: "Ortiz", tipo: "Frecuente" },
+  { id: "8", nombres: "Regina", apellidoPaterno: "Morales", apellidoMaterno: "Cruz", tipo: "Nuevo" },
+  { id: "9", nombres: "Camila", apellidoPaterno: "Ríos", apellidoMaterno: "Chávez", tipo: "Frecuente" },
+  { id: "10", nombres: "Sofía", apellidoPaterno: "Mendoza", apellidoMaterno: "Pérez", tipo: "Nuevo" },
 ];
 
 type FilterType = "Todos" | "Nuevo" | "Frecuente";
@@ -292,25 +289,23 @@ export default function Clientes() {
         </CardContent>
       </Card>
 
-      {/* Add client modal */}
-      <AddClientDialog
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        onSave={(data) => {
-          const newClient: Client = {
-            id: String(Date.now()),
-            nombres: data.nombres,
-            apellidoPaterno: data.apellidoPaterno,
-            apellidoMaterno: data.apellidoMaterno || "",
-            telefono: data.telefono,
-            correo: data.correo || "",
-            tipo: "Nuevo",
-          };
-          setClients((prev) => [newClient, ...prev]);
-          toast.success(`Cliente ${data.nombres} ${data.apellidoPaterno} agregado`);
-          setAddOpen(false);
-        }}
-      />
+      {/* Add client modal placeholder */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nuevo Cliente</DialogTitle>
+            <DialogDescription>Formulario de cliente (pendiente)</DialogDescription>
+          </DialogHeader>
+          <div className="py-8 text-center text-muted-foreground text-sm">
+            El formulario de registro se implementará próximamente.
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cerrar</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete confirmation */}
       <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
