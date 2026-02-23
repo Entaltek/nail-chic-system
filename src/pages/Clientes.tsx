@@ -19,7 +19,7 @@ import {
   Plus, Search, Pencil, Trash2, Eye, Users, MoreVertical, AlertCircle, UserPlus, RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { AddClientDialog } from "@/components/clientes/AddClientDialog";
+import { AddClientDialog } from "@/components/clientes/AddClientDialog"; // client form
 
 // --- Types ---
 type ClientType = "Nuevo" | "Frecuente";
