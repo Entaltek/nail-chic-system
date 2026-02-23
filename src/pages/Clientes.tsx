@@ -61,13 +61,6 @@ export default function Clientes() {
   const [addOpen, setAddOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
 
-  // Edit state
-  const [editOpen, setEditOpen] = useState(false);
-  const [editClient, setEditClient] = useState<Client | null>(null);
-  const [editLoading, setEditLoading] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<Partial<ClientFormValues> | null>(null);
-
   const filtered = clients.filter((c) => {
     const matchesSearch =
       search === "" ||
@@ -76,35 +69,7 @@ export default function Clientes() {
     return matchesSearch && matchesFilter;
   });
 
-  // Simulate fetching client data by ID (replace with real GET /api/clients/:id)
-  const fetchClientForEdit = (client: Client) => {
-    setEditClient(client);
-    setEditOpen(true);
-    setEditLoading(true);
-    setEditError(null);
-    setEditValues(null);
-
-    // TODO: Replace with real API call — GET /api/clients/:id
-    setTimeout(() => {
-      try {
-        const found = clients.find((c) => c.id === client.id);
-        if (!found) throw new Error("Cliente no encontrado");
-        setEditValues({
-          nombres: found.nombres ?? "",
-          apellidoPaterno: found.apellidoPaterno ?? "",
-          apellidoMaterno: found.apellidoMaterno ?? "",
-          correo: "",   // TODO: populate from DB when available
-          telefono: "",  // TODO: populate from DB when available
-        });
-        setEditLoading(false);
-      } catch {
-        setEditError("No se pudieron cargar los datos del cliente");
-        setEditLoading(false);
-      }
-    }, 600);
-  };
-
-  const handleEdit = (c: Client) => fetchClientForEdit(c);
+  const handleEdit = (c: Client) => toast.info(`Editar cliente: ${fullName(c)} (pendiente)`);
   const handleView = (c: Client) => toast.info(`Ver detalle: ${fullName(c)} (pendiente)`);
   const confirmDelete = () => {
     if (!deleteTarget) return;
@@ -340,34 +305,6 @@ export default function Clientes() {
           setClients((prev) => [newClient, ...prev]);
           setAddOpen(false);
           toast.success(`Cliente ${data.nombres} ${data.apellidoPaterno} registrado`);
-        }}
-      />
-
-      {/* Edit client form */}
-      <ClientFormDialog
-        open={editOpen}
-        onOpenChange={(open) => {
-          setEditOpen(open);
-          if (!open) { setEditClient(null); setEditValues(null); setEditError(null); }
-        }}
-        mode="edit"
-        loading={editLoading}
-        error={editError}
-        onRetry={() => editClient && fetchClientForEdit(editClient)}
-        initialValues={editValues}
-        onSave={(data: ClientFormValues) => {
-          if (!editClient) return;
-          // TODO: Replace with real API call — PUT /api/clients/:id
-          setClients((prev) =>
-            prev.map((c) =>
-              c.id === editClient.id
-                ? { ...c, nombres: data.nombres, apellidoPaterno: data.apellidoPaterno, apellidoMaterno: data.apellidoMaterno || "" }
-                : c
-            )
-          );
-          setEditOpen(false);
-          setEditClient(null);
-          toast.success(`Cliente ${data.nombres} ${data.apellidoPaterno} actualizado`);
         }}
       />
 
