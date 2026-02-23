@@ -289,7 +289,7 @@ export default function InventarioCategoriaDetalle() {
 
       // Registrar movimiento (AQUÍ VA LO NUEVO)
       await createMovement({
-        itemId: adjustItem.docId || adjustItem.id,
+        itemId: adjustItem.id,
         type: adjustType,
         quantity: qty,
         reason: adjustReason || undefined,
