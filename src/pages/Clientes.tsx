@@ -19,6 +19,7 @@ import {
   Plus, Search, Pencil, Trash2, Eye, Users, MoreVertical, AlertCircle, UserPlus, RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ClientFormDialog, type ClientFormValues } from "@/components/clientes/ClientFormDialog";
 
 // --- Types ---
 type ClientType = "Nuevo" | "Frecuente";
@@ -289,23 +290,23 @@ export default function Clientes() {
         </CardContent>
       </Card>
 
-      {/* Add client modal placeholder */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nuevo Cliente</DialogTitle>
-            <DialogDescription>Formulario de cliente (pendiente)</DialogDescription>
-          </DialogHeader>
-          <div className="py-8 text-center text-muted-foreground text-sm">
-            El formulario de registro se implementará próximamente.
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Cerrar</Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Add client form */}
+      <ClientFormDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        onSave={(data: ClientFormValues) => {
+          const newClient: Client = {
+            id: String(Date.now()),
+            nombres: data.nombres,
+            apellidoPaterno: data.apellidoPaterno,
+            apellidoMaterno: data.apellidoMaterno || "",
+            tipo: "Nuevo",
+          };
+          setClients((prev) => [newClient, ...prev]);
+          setAddOpen(false);
+          toast.success(`Cliente ${data.nombres} ${data.apellidoPaterno} registrado`);
+        }}
+      />
 
       {/* Delete confirmation */}
       <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
