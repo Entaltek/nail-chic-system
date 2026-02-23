@@ -1,6 +1,8 @@
+import { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose,
 } from "@/components/ui/dialog";
@@ -55,20 +57,43 @@ interface ClientFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (data: ClientFormValues) => void;
+  initialValues?: Partial<ClientFormValues> | null;
+  mode?: "create" | "edit";
+  loading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
-export function ClientFormDialog({ open, onOpenChange, onSave }: ClientFormDialogProps) {
+const emptyDefaults: ClientFormValues = {
+  nombres: "",
+  apellidoPaterno: "",
+  apellidoMaterno: "",
+  correo: "",
+  telefono: "",
+};
+
+export function ClientFormDialog({ open, onOpenChange, onSave, initialValues, mode = "create", loading, error, onRetry }: ClientFormDialogProps) {
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
-    defaultValues: {
-      nombres: "",
-      apellidoPaterno: "",
-      apellidoMaterno: "",
-      correo: "",
-      telefono: "",
-    },
+    defaultValues: emptyDefaults,
     mode: "onTouched",
   });
+
+  // Reset form with initial values when opening in edit mode
+  const hasReset = useRef(false);
+  useEffect(() => {
+    if (open && mode === "edit" && initialValues && !loading && !error && !hasReset.current) {
+      form.reset({
+        nombres: initialValues.nombres ?? "",
+        apellidoPaterno: initialValues.apellidoPaterno ?? "",
+        apellidoMaterno: initialValues.apellidoMaterno ?? "",
+        correo: initialValues.correo ?? "",
+        telefono: initialValues.telefono ?? "",
+      });
+      hasReset.current = true;
+    }
+    if (!open) hasReset.current = false;
+  }, [open, mode, initialValues, loading, error, form]);
 
   const handleSubmit = (data: ClientFormValues) => {
     onSave({
@@ -89,9 +114,30 @@ export function ClientFormDialog({ open, onOpenChange, onSave }: ClientFormDialo
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Nuevo Cliente</DialogTitle>
-          <DialogDescription>Completa los datos para registrar un nuevo cliente</DialogDescription>
+          <DialogTitle>{mode === "edit" ? "Editar Cliente" : "Nuevo Cliente"}</DialogTitle>
+          <DialogDescription>
+            {mode === "edit" ? "Modifica los datos del cliente" : "Completa los datos para registrar un nuevo cliente"}
+          </DialogDescription>
         </DialogHeader>
+
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Cargando datos del cliente…</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
+            <div className="rounded-full bg-destructive/10 p-3">
+              <AlertCircle className="h-6 w-6 text-destructive" />
+            </div>
+            <p className="text-sm text-muted-foreground">{error}</p>
+            {onRetry && (
+              <Button variant="outline" size="sm" onClick={onRetry}>
+                <RefreshCw className="h-4 w-4 mr-2" /> Reintentar
+              </Button>
+            )}
+          </div>
+        ) : (
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
@@ -197,6 +243,7 @@ export function ClientFormDialog({ open, onOpenChange, onSave }: ClientFormDialo
             </DialogFooter>
           </form>
         </Form>
+        )}
       </DialogContent>
     </Dialog>
   );
