@@ -126,6 +126,14 @@
 
     /* Font family */
     --font-family: 'Quicksand', sans-serif;
+
+    /* Login theme */
+    --login-bg-gradient: linear-gradient(to top right, #fff1eb 0%, #ace0f9 100%);
+    --login-glass-bg: rgba(255, 255, 255, 0.15);
+    --login-glass-border: 1px solid rgba(255, 255, 255, 0.6);
+    --login-glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    --login-primary-btn: 330 86% 70%;
+    --login-splash-bg: linear-gradient(135deg, #fdf2f8 0%, #f0abfc 50%, #d946ef 100%);
   }
 
   /* ============ ENTALTEK CORPORATE THEME ============ */
@@ -194,6 +202,14 @@
 
     /* Font family - Sansation Corporate */
     --font-family: 'Sansation', sans-serif;
+
+    /* Login theme */
+    --login-bg-gradient: linear-gradient(135deg, #0f172a 0%, #013762 100%);
+    --login-glass-bg: rgba(1, 121, 177, 0.1);
+    --login-glass-border: 1px solid rgba(1, 121, 177, 0.3);
+    --login-glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --login-primary-btn: 197 99% 35%;
+    --login-splash-bg: linear-gradient(135deg, #013762 0%, #0179B1 50%, #47DAD6 100%);
   }
 
   .dark {
