@@ -134,6 +134,10 @@
     --login-glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     --login-primary-btn: 330 86% 70%;
     --login-splash-bg: linear-gradient(135deg, #fdf2f8 0%, #f0abfc 50%, #d946ef 100%);
+    --login-text: 215 28% 17%;
+    --login-text-muted: 215 20% 45%;
+    --login-input-bg: rgba(255, 255, 255, 0.4);
+    --login-input-border: rgba(215, 28, 17, 0.1);
   }
 
   /* ============ ENTALTEK CORPORATE THEME ============ */
@@ -210,6 +214,10 @@
     --login-glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     --login-primary-btn: 197 99% 35%;
     --login-splash-bg: linear-gradient(135deg, #013762 0%, #0179B1 50%, #47DAD6 100%);
+    --login-text: 0 0% 100%;
+    --login-text-muted: 0 0% 70%;
+    --login-input-bg: rgba(255, 255, 255, 0.1);
+    --login-input-border: rgba(255, 255, 255, 0.2);
   }
 
   .dark {

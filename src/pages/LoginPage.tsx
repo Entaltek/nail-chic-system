@@ -59,7 +59,10 @@ export default function LoginPage() {
           <motion.div
             key="login"
             className="fixed inset-0 flex items-center justify-center overflow-hidden"
-            style={{ background: "var(--login-bg-gradient)" }}
+            style={{ 
+              background: "var(--login-bg-gradient)",
+              color: "hsl(var(--login-text))"
+            }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -88,13 +91,13 @@ export default function LoginPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6 }}
             >
-              <span className="text-xs font-medium text-white/70">
+              <span className="text-xs font-medium opacity-70">
                 {isEntaltek ? "Entaltek" : "Naila Art"}
               </span>
               <Switch
                 checked={isEntaltek}
                 onCheckedChange={toggleTheme}
-                className="data-[state=checked]:bg-white/30 data-[state=unchecked]:bg-white/20"
+                className="data-[state=checked]:bg-primary/30 data-[state=unchecked]:bg-black/10"
               />
             </motion.div>
 
@@ -127,14 +130,14 @@ export default function LoginPage() {
                       className="h-16 w-16 object-contain mb-3"
                     />
                   ) : (
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm mb-3 shadow-lg">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/40 backdrop-blur-sm mb-3 shadow-lg border border-white/50">
                       <span className="text-3xl">💅</span>
                     </div>
                   )}
-                  <h1 className="text-2xl font-bold text-white tracking-tight">
+                  <h1 className="text-2xl font-bold tracking-tight">
                     {isEntaltek ? "Entaltek" : "Naila Art"}
                   </h1>
-                  <p className="text-sm text-white/60 mt-1">
+                  <p className="text-sm opacity-60 mt-1">
                     {isEntaltek
                       ? "Business Suite"
                       : "Tu estudio, tu arte"}
@@ -150,14 +153,19 @@ export default function LoginPage() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.3 }}
                   >
-                    <Label className="text-white/80 text-sm">Correo electrónico</Label>
+                    <Label className="opacity-80 text-sm">Correo electrónico</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-40" />
                       <Input
                         {...register("email")}
                         type="email"
                         placeholder="tu@correo.com"
-                        className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-white/40 focus-visible:border-white/40"
+                        className="pl-10 focus-visible:ring-primary/40 focus-visible:border-primary/40"
+                        style={{
+                          background: "var(--login-input-bg)",
+                          border: "var(--login-input-border)",
+                          color: "hsl(var(--login-text))"
+                        }}
                       />
                     </div>
                     <AnimatePresence>
@@ -166,7 +174,7 @@ export default function LoginPage() {
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: "auto" }}
                           exit={{ opacity: 0, height: 0 }}
-                          className="text-xs text-red-300 font-medium"
+                          className="text-xs text-destructive font-medium"
                         >
                           {errors.email.message}
                         </motion.p>
@@ -181,19 +189,24 @@ export default function LoginPage() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.4 }}
                   >
-                    <Label className="text-white/80 text-sm">Contraseña</Label>
+                    <Label className="opacity-80 text-sm">Contraseña</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-40" />
                       <Input
                         {...register("password")}
                         type={showPassword ? "text" : "password"}
                         placeholder="••••••••"
-                        className="pl-10 pr-10 bg-white/10 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-white/40 focus-visible:border-white/40"
+                        className="pl-10 pr-10 focus-visible:ring-primary/40 focus-visible:border-primary/40"
+                        style={{
+                          background: "var(--login-input-bg)",
+                          border: "var(--login-input-border)",
+                          color: "hsl(var(--login-text))"
+                        }}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 opacity-40 hover:opacity-70 transition-opacity"
                       >
                         {showPassword ? (
                           <EyeOff className="h-4 w-4" />
@@ -208,7 +221,7 @@ export default function LoginPage() {
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: "auto" }}
                           exit={{ opacity: 0, height: 0 }}
-                          className="text-xs text-red-300 font-medium"
+                          className="text-xs text-destructive font-medium"
                         >
                           {errors.password.message}
                         </motion.p>
@@ -225,7 +238,7 @@ export default function LoginPage() {
                   >
                     <button
                       type="button"
-                      className="text-xs text-white/50 hover:text-white/80 transition-colors"
+                      className="text-xs opacity-50 hover:opacity-80 transition-opacity"
                     >
                       ¿Olvidaste tu contraseña?
                     </button>
@@ -245,6 +258,7 @@ export default function LoginPage() {
                         background: isValid
                           ? `hsl(var(--login-primary-btn))`
                           : undefined,
+                        color: isValid ? "white" : undefined,
                         boxShadow: isValid
                           ? `0 4px 20px -4px hsl(var(--login-primary-btn) / 0.5)`
                           : undefined,
