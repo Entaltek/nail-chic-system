@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -22,6 +22,8 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const prefillEmail = searchParams.get("email") || "";
   const { theme, toggleTheme } = useTheme();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -34,6 +36,10 @@ export default function LoginPage() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     mode: "onChange",
+    defaultValues: {
+      email: prefillEmail,
+      password: "",
+    },
   });
 
   const onSubmit = async (_data: LoginFormData) => {
@@ -271,6 +277,23 @@ export default function LoginPage() {
                       )}
                     </Button>
                   </motion.div>
+
+                  {/* Link to register */}
+                  <motion.p
+                    className="text-center text-sm opacity-60"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.6 }}
+                  >
+                    ¿No tienes cuenta?{" "}
+                    <button
+                      type="button"
+                      onClick={() => navigate("/register")}
+                      className="font-semibold underline hover:opacity-100 transition-opacity"
+                    >
+                      Regístrate
+                    </button>
+                  </motion.p>
                 </form>
               </div>
             </motion.div>
