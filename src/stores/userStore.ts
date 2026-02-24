@@ -36,19 +36,28 @@ const DEFAULT_STAFF_PERMISSIONS: AppModuleId[] = [
 interface UserStoreState {
   users: AppUser[];
   currentUserId: string;
-  simulatingAs: string | null; // userId being simulated
+  simulatingAs: string | null;
 
-  // Actions
   updateUserPermissions: (userId: string, permissions: AppModuleId[]) => void;
   setCurrentUser: (userId: string) => void;
   simulateAs: (userId: string | null) => void;
-  getActiveUser: () => AppUser;
-  getActivePermissions: () => AppModuleId[];
+}
+
+// Standalone selectors (no new objects created inside the store)
+export function selectActiveUser(state: UserStoreState): AppUser {
+  const activeId = state.simulatingAs ?? state.currentUserId;
+  return state.users.find((u) => u.id === activeId) ?? state.users[0];
+}
+
+export function selectActivePermissions(state: UserStoreState): AppModuleId[] {
+  const user = selectActiveUser(state);
+  if (user.role === 'admin') return ALL_MODULE_IDS;
+  return user.permissions;
 }
 
 export const useUserStore = create<UserStoreState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       users: [
         { id: 'admin', name: 'Admin (Tú)', role: 'admin', permissions: [...ALL_MODULE_IDS] },
         { id: 'laura', name: 'Laura', role: 'staff', permissions: [...DEFAULT_STAFF_PERMISSIONS] },
@@ -66,18 +75,6 @@ export const useUserStore = create<UserStoreState>()(
       setCurrentUser: (userId) => set({ currentUserId: userId }),
 
       simulateAs: (userId) => set({ simulatingAs: userId }),
-
-      getActiveUser: () => {
-        const state = get();
-        const activeId = state.simulatingAs ?? state.currentUserId;
-        return state.users.find((u) => u.id === activeId) ?? state.users[0];
-      },
-
-      getActivePermissions: () => {
-        const user = get().getActiveUser();
-        if (user.role === 'admin') return [...ALL_MODULE_IDS];
-        return user.permissions;
-      },
     }),
     { name: 'entaltek-users' }
   )
