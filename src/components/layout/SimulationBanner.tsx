@@ -1,13 +1,13 @@
-import { useUserStore } from "@/stores/userStore";
+import { useUserStore, selectActiveUser } from "@/stores/userStore";
 import { Button } from "@/components/ui/button";
 import { Eye, X } from "lucide-react";
 
 export function SimulationBanner() {
-  const { simulatingAs, getActiveUser, simulateAs } = useUserStore();
+  const simulatingAs = useUserStore((s) => s.simulatingAs);
+  const simulateAs = useUserStore((s) => s.simulateAs);
+  const user = useUserStore(selectActiveUser);
 
   if (!simulatingAs) return null;
-
-  const user = getActiveUser();
 
   return (
     <div className="fixed top-0 left-0 right-0 z-[100] bg-destructive text-destructive-foreground px-4 py-2 flex items-center justify-center gap-3 text-sm font-medium shadow-lg">
