@@ -18,20 +18,21 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/hooks/useTheme";
+import { useUserStore, type AppModuleId } from "@/stores/userStore";
 import logoEntaltek from "@/assets/logo_entaltek.png";
 
-const navItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Servicio en Curso", url: "/servicio", icon: Timer },
-  { title: "Menú Servicios", url: "/menu-servicios", icon: MenuSquare },
-  { title: "Inventario", url: "/inventario", icon: Package },
-  { title: "Categorías", url: "/gestion-categorias", icon: FolderOpen },
-  { title: "Extras y Arte", url: "/extras", icon: Palette },
-  { title: "Catálogo Diseños", url: "/catalogo", icon: Palette },
-  { title: "Reportes", url: "/reportes", icon: BarChart3 },
-  { title: "Clientes", url: "/clientes", icon: Users },
-  { title: "Costos y Gastos", url: "/costos-gastos", icon: DollarSign },
-  { title: "Configuración", url: "/configuracion", icon: Settings2 },
+const navItems: { title: string; url: string; icon: typeof LayoutDashboard; moduleId: AppModuleId }[] = [
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, moduleId: "dashboard" },
+  { title: "Servicio en Curso", url: "/servicio", icon: Timer, moduleId: "servicio" },
+  { title: "Menú Servicios", url: "/menu-servicios", icon: MenuSquare, moduleId: "menu-servicios" },
+  { title: "Inventario", url: "/inventario", icon: Package, moduleId: "inventario" },
+  { title: "Categorías", url: "/gestion-categorias", icon: FolderOpen, moduleId: "categorias" },
+  { title: "Extras y Arte", url: "/extras", icon: Palette, moduleId: "extras" },
+  { title: "Catálogo Diseños", url: "/catalogo", icon: Palette, moduleId: "catalogo" },
+  { title: "Reportes", url: "/reportes", icon: BarChart3, moduleId: "reportes" },
+  { title: "Clientes", url: "/clientes", icon: Users, moduleId: "clientes" },
+  { title: "Costos y Gastos", url: "/costos-gastos", icon: DollarSign, moduleId: "costos-gastos" },
+  { title: "Configuración", url: "/configuracion", icon: Settings2, moduleId: "configuracion" },
 ];
 
 export function AppSidebar() {
@@ -39,6 +40,8 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme } = useTheme();
+  const activePermissions = useUserStore((s) => s.getActivePermissions());
+  const visibleItems = navItems.filter((item) => activePermissions.includes(item.moduleId));
 
   const handleLogout = () => {
     navigate("/login");
@@ -93,7 +96,7 @@ export function AppSidebar() {
 
           {/* Navigation */}
           <nav className="flex-1 px-4 py-6 space-y-2">
-            {navItems.map((item) => {
+            {visibleItems.map((item) => {
               const isActive = location.pathname === item.url;
               return (
                 <Link
