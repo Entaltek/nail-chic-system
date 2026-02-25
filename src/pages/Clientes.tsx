@@ -307,7 +307,6 @@ export default function Clientes() {
           };
           setClients((prev) => [newClient, ...prev]);
           setAddOpen(false);
-          toast.success(`Cliente ${data.nombres} ${data.apellidoPaterno} registrado`);
         }}
       />
 
@@ -326,7 +325,6 @@ export default function Clientes() {
             )
           );
           setEditClientId(null);
-          toast.success(`Cliente ${data.nombres} ${data.apellidoPaterno} actualizado`);
         }}
       />
 

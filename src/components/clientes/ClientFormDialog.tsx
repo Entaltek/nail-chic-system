@@ -328,7 +328,11 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent
+        className="sm:max-w-lg [&>button]:hidden"
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>{isEditMode ? "Editar Cliente" : "Nuevo Cliente"}</DialogTitle>
           <DialogDescription>
