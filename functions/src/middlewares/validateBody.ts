@@ -1,16 +1,38 @@
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
+import { ZodType } from "zod";
 
 export const validateBody =
-  (schema: any) =>
+  (schema: ZodType) =>
   (req: Request, res: Response, next: NextFunction): void => {
-    const { error } = schema.validate(req.body);
+    const result = schema.safeParse(req.body);
 
-    if (error) {
-      res.status(400).json({ error: error.details[0].message });
-      return; // aquí solo termina la función, no retornas el Response
+    if (!result.success) {
+      const errors = result.error.issues.map((issue) => {
+        const field =
+          issue.path.length > 0
+            ? String(issue.path[issue.path.length - 1])
+            : "dato";
+        let message = issue.message;
+
+        if (issue.code === "invalid_type" && (issue as any).input === undefined) {
+          message = `El campo '${field}' es obligatorio`;
+        }
+
+        if (issue.code === "invalid_value" && field === "tipo") {
+          message = "El tipo debe ser 'nuevo' o 'frecuente'";
+        }
+
+        return { field, message };
+      });
+
+      res.status(400).json({
+        success: false,
+        message: "Error de validacion",
+        errors,
+      });
+      return;
     }
 
+    req.body = result.data;
     next();
   };
-
-
