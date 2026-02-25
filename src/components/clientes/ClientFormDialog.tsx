@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, RefreshCw } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
 
@@ -111,6 +112,7 @@ const mapFirebaseToForm = (data: FirebaseClientData): ClientFormValues => ({
 // -------------------------------------------------------------------------------
 
 export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: ClientFormDialogProps) {
+  const { toast } = useToast();
   const isEditMode = !!editClientId;
   const [fetchState, setFetchState] = useState<FetchState>("idle");
 
@@ -155,13 +157,15 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
   };
 
   const handleSubmit = (data: ClientFormValues) => {
-    // TODO: In edit mode → updateDoc(doc(db, "clients", editClientId), ...)
-    // In create mode → addDoc(collection(db, "clients"), ...)
     onSave({
       ...data,
       nombres: formatName(data.nombres),
       apellidoPaterno: formatName(data.apellidoPaterno),
       apellidoMaterno: data.apellidoMaterno ? formatName(data.apellidoMaterno) : "",
+    });
+    toast({
+      title: isEditMode ? "Cliente actualizado" : "Cliente creado",
+      description: "Registro guardado exitosamente.",
     });
     form.reset();
   };
