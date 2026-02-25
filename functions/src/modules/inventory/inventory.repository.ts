@@ -5,48 +5,64 @@ const collection = db.collection("inventoryItems");
 
 export class InventoryRepository {
   async create(item: InventoryItem) {
-    const { id, ...data } = item as any;
+    const docRef = collection.doc();
 
-    const docRef = await collection.add(data);
+    await docRef.set({
+      ...item,
+      createdAt: new Date()
+    });
 
     return {
-      id: docRef.id,
-      ...data
+      ...item
     };
   }
 
   async getAll() {
     const snapshot = await collection.orderBy("name").get();
     return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...(doc.data() as Omit<InventoryItem, "id">)
+      ...(doc.data() as Omit<InventoryItem, "docId">)
     }));
   }
 
   async getById(id: string) {
-    const doc = await collection.doc(id).get();
+    let doc = await collection.doc(id).get();
 
-    if (!doc.exists) return null;
+    if (!doc.exists) {
+      // fallback por id lógico
+      const q = await collection.where("id", "==", id).limit(1).get();
+      if (q.empty) return null;
+      doc = q.docs[0];
+    }
 
     return {
-      id: doc.id,
-      ...(doc.data() as Omit<InventoryItem, "id">)
+      docId: doc.id,
+      ...(doc.data() as Omit<InventoryItem, "docId">)
     };
   }
 
   async update(id: string, data: Partial<InventoryItem>) {
-    await collection.doc(id).update({
+    const doc = await this.getById(id);
+    if (!doc) throw new Error("Item no encontrado");
+
+    await collection.doc(doc.docId).update({
       ...data,
       updatedAt: new Date()
     });
   }
 
   async delete(id: string) {
-    await collection.doc(id).delete();
+    const doc = await this.getById(id);
+    if (!doc) return;
+
+    await collection.doc(doc.docId).delete();
   }
 
   async getLowStock(): Promise<InventoryItem[]> {
     const snapshot = await collection.get();
-    return snapshot.docs.map(doc => doc.data() as InventoryItem);
+
+    return snapshot.docs.map(doc => ({
+      docId: doc.id,
+      ...(doc.data() as InventoryItem)
+    }));
     }
 }

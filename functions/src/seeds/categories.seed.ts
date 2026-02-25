@@ -1,76 +1,104 @@
 import { db } from "../config/firebase";
+import { Timestamp } from "firebase-admin/firestore";
+
+const now = Timestamp.now();
 
 const categories = [
   {
-    id: 'limas-pulidores',
-    name: 'Limas y Pulidores',
-    superCategory: 'CONSUMIBLES_BASICOS',
-    description: 'Limas, buffers, pulidores desechables',
-    color: 'bg-blue-500',
-    icon: '📏',
+    name: "Limas y Pulidores",
+    superCategory: "CONSUMIBLES_BASICOS",
+    description: "Limas, buffers, pulidores desechables",
+    icon: {
+      emoji: "📏",
+      bgClass: "bg-blue-500",
+    },
+    inventoryVariant: "EXACT_PIECE",
+    isActive: true,
+    order: 1,
   },
   {
-    id: 'tips-moldes',
-    name: 'Tips y Moldes',
-    superCategory: 'CONSUMIBLES_BASICOS',
-    description: 'Tips Soft Gel, moldes, formas',
-    color: 'bg-blue-400',
-    icon: '💅',
+    name: "Tips y Moldes",
+    superCategory: "CONSUMIBLES_BASICOS",
+    description: "Tips Soft Gel, moldes, formas",
+    icon: {
+      emoji: "💅",
+      bgClass: "bg-blue-400",
+    },
+    inventoryVariant: "EXACT_PIECE",
+    isActive: true,
+    order: 2,
   },
   {
-    id: 'desechables',
-    name: 'Desechables',
-    superCategory: 'CONSUMIBLES_BASICOS',
-    description: 'Guantes, servitoallas, cubrebocas',
-    color: 'bg-blue-300',
-    icon: '🧤',
-  },
-
-  // QUIMICOS
-  {
-    id: 'acrilicos',
-    name: 'Acrílicos',
-    superCategory: 'QUIMICOS_GELES',
-    description: 'Monómero, polvo acrílico, primer',
-    color: 'bg-purple-500',
-    icon: '🧪',
+    name: "Desechables",
+    superCategory: "CONSUMIBLES_BASICOS",
+    description: "Guantes, servitoallas, cubrebocas",
+    icon: {
+      emoji: "🧤",
+      bgClass: "bg-blue-300",
+    },
+    inventoryVariant: "EXACT_PIECE",
+    isActive: true,
+    order: 3,
   },
   {
-    id: 'geles',
-    name: 'Geles y Rubber',
-    superCategory: 'QUIMICOS_GELES',
-    description: 'Base coat, top coat, rubber base, gel color',
-    color: 'bg-purple-400',
-    icon: '✨',
+    name: "Acrílicos",
+    superCategory: "QUIMICOS_GELES",
+    description: "Monómero, polvo acrílico, primer",
+    icon: {
+      emoji: "🧪",
+      bgClass: "bg-purple-500",
+    },
+    inventoryVariant: "DROP_CALC",
+    isActive: true,
+    order: 4,
   },
-
-  // DECORACION
   {
-    id: 'charms-accesorios',
-    name: 'Charms y Accesorios',
-    superCategory: 'DECORACION_CONTABLE',
-    description: 'Charms, moños, stickers, cristales grandes',
-    color: 'bg-pink-500',
-    icon: '🎀',
+    name: "Geles y Rubber",
+    superCategory: "QUIMICOS_GELES",
+    description: "Base coat, top coat, rubber base, gel color",
+    icon: {
+      emoji: "✨",
+      bgClass: "bg-purple-400",
+    },
+    inventoryVariant: "DROP_CALC",
+    isActive: true,
+    order: 5,
   },
-
   {
-    id: 'efectos-polvo',
-    name: 'Efectos y Polvos',
-    superCategory: 'DECORACION_GRANEL',
-    description: 'Glitter, efecto espejo, aurora',
-    color: 'bg-rose-400',
-    icon: '🌟',
+    name: "Charms y Accesorios",
+    superCategory: "DECORACION_CONTABLE",
+    description: "Charms, moños, stickers, cristales grandes",
+    icon: {
+      emoji: "🎀",
+      bgClass: "bg-pink-500",
+    },
+    inventoryVariant: "HIGH_VALUE",
+    isActive: true,
+    order: 6,
   },
-
-  // EQUIPO
   {
-    id: 'equipo-electrico',
-    name: 'Equipo Eléctrico',
-    superCategory: 'EQUIPO_HERRAMIENTAS',
-    description: 'Drill, lámpara UV/LED',
-    color: 'bg-amber-500',
-    icon: '🔌',
+    name: "Efectos y Polvos",
+    superCategory: "DECORACION_GRANEL",
+    description: "Glitter, efecto espejo, aurora",
+    icon: {
+      emoji: "🌟",
+      bgClass: "bg-rose-400",
+    },
+    inventoryVariant: "VISUAL_STATE",
+    isActive: true,
+    order: 7,
+  },
+  {
+    name: "Equipo Eléctrico",
+    superCategory: "EQUIPO_HERRAMIENTAS",
+    description: "Drill, lámpara UV/LED",
+    icon: {
+      emoji: "🔌",
+      bgClass: "bg-amber-500",
+    },
+    inventoryVariant: "DEPRECIATION",
+    isActive: true,
+    order: 8,
   },
 ];
 
@@ -78,14 +106,14 @@ export async function seedCategories() {
   const batch = db.batch();
 
   categories.forEach((category) => {
-    const { id, ...data } = category;
-    const ref = db.collection('inventoryCategories').doc(id);
+    const ref = db.collection("inventoryCategories").doc();
+
     batch.set(ref, {
-      ...data,
-      createdAt: new Date(),
+      ...category,
+      createdAt: now,
+      updatedAt: now,
     });
   });
 
   await batch.commit();
-  console.log('✅ Categorías iniciales creadas');
 }

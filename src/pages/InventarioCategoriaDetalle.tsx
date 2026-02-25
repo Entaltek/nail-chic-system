@@ -280,12 +280,6 @@ export default function InventarioCategoriaDetalle() {
     }
 
     try {
-      console.log("Movimiento a enviar:", {
-        itemId: adjustItem.id,
-        type: adjustType,
-        quantity: qty,
-        reason: adjustReason,
-      });
 
       // Registrar movimiento (AQUÍ VA LO NUEVO)
       await createMovement({
