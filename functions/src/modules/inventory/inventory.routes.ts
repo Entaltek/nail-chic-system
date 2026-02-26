@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { InventoryController } from "./inventory.controller";
 import { validateBody } from "../../middlewares/validateBody";
-import { InventoryItemSchema } from "./inventoryItem.model";
+import { InventoryItemSchema } from "./inventory.model";
 
 const router = Router();
 const controller = new InventoryController();

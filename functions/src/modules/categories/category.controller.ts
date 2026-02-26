@@ -56,7 +56,6 @@ export const CategoryController = {
         message: error.message || 'Error al obtener categoría',
       };
 
-      // 🔥 AQUÍ ESTÁ EL CAMBIO IMPORTANTE
       if (error.message === 'Categoría no encontrada') {
         return res.status(404).json(response);
       }

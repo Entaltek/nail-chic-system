@@ -1,68 +1,66 @@
 import { db } from "../../config/firebase";
-import { InventoryItem } from "./inventoryItem.model";
+import { InventoryItem } from "./inventory.model";
 
 const collection = db.collection("inventoryItems");
 
 export class InventoryRepository {
-  async create(item: InventoryItem) {
+
+  async create(item: Omit<InventoryItem, "id">) {
     const docRef = collection.doc();
 
-    await docRef.set({
-      ...item,
-      createdAt: new Date()
-    });
-
-    return {
+    const newItem = {
+      id: docRef.id,
       ...item
     };
+
+    await docRef.set(newItem);
+
+    return newItem;
   }
 
-  async getAll() {
-    const snapshot = await collection.orderBy("name").get();
-    return snapshot.docs.map(doc => ({
-      ...(doc.data() as Omit<InventoryItem, "docId">)
-    }));
+  async findAll(): Promise<InventoryItem[]> {
+    const snapshot = await collection
+      .where("isActive", "==", true)
+      .orderBy("name")
+      .get();
+
+    return snapshot.docs.map(doc => doc.data() as InventoryItem);
   }
 
-  async getById(id: string) {
-    let doc = await collection.doc(id).get();
+  async findById(id: string): Promise<InventoryItem | null> {
+    const doc = await collection.doc(id).get();
 
-    if (!doc.exists) {
-      // fallback por id lógico
-      const q = await collection.where("id", "==", id).limit(1).get();
-      if (q.empty) return null;
-      doc = q.docs[0];
-    }
+    if (!doc.exists) return null;
 
-    return {
-      docId: doc.id,
-      ...(doc.data() as Omit<InventoryItem, "docId">)
-    };
+    return doc.data() as InventoryItem;
   }
 
   async update(id: string, data: Partial<InventoryItem>) {
-    const doc = await this.getById(id);
-    if (!doc) throw new Error("Item no encontrado");
+    const docRef = collection.doc(id);
+    const doc = await docRef.get();
 
-    await collection.doc(doc.docId).update({
+    if (!doc.exists) return null;
+
+    await docRef.update({
       ...data,
       updatedAt: new Date()
     });
+
+    const updated = await docRef.get();
+    return updated.data() as InventoryItem;
   }
 
-  async delete(id: string) {
-    const doc = await this.getById(id);
-    if (!doc) return;
+  async softDelete(id: string) {
+    const docRef = collection.doc(id);
+    const doc = await docRef.get();
 
-    await collection.doc(doc.docId).delete();
+    if (!doc.exists) return null;
+
+    await docRef.update({
+      isActive: false,
+      updatedAt: new Date()
+    });
+
+    return true;
   }
-
-  async getLowStock(): Promise<InventoryItem[]> {
-    const snapshot = await collection.get();
-
-    return snapshot.docs.map(doc => ({
-      docId: doc.id,
-      ...(doc.data() as InventoryItem)
-    }));
-    }
 }
