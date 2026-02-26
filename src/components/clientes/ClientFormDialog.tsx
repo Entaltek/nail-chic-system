@@ -164,8 +164,8 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
       apellidoMaterno: data.apellidoMaterno ? formatName(data.apellidoMaterno) : "",
     });
     toast({
-      title: isEditMode ? "Cliente actualizado" : "Cliente creado",
-      description: "Registro guardado exitosamente.",
+      title: isEditMode ? "Cliente Actualizado" : "Cliente Agregado",
+      description: "Registro guardado con éxito.",
     });
     form.reset();
   };
@@ -209,12 +209,14 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
         {/* Nombres — full width */}
-        <FormField
+       <FormField
           control={form.control}
           name="nombres"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nombre(s) *</FormLabel>
+              <FormLabel className="!text-foreground">
+                Nombre(s) <span className="text-destructive">*</span>
+              </FormLabel>
               <FormControl>
                 <Input
                   placeholder="Ej. María Fernanda"
@@ -233,12 +235,14 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
 
         {/* 2-col grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <FormField
+         <FormField
             control={form.control}
             name="apellidoPaterno"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Apellido Paterno *</FormLabel>
+                <FormLabel className="!text-foreground">
+                  Apellido Paterno <span className="text-destructive">*</span>
+                </FormLabel>
                 <FormControl>
                   <Input
                     placeholder="Ej. García"
@@ -296,7 +300,9 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
             name="telefono"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Teléfono *</FormLabel>
+                <FormLabel className="!text-foreground">
+                  Teléfono <span className="text-destructive">*</span>
+                </FormLabel>
                 <FormControl>
                   <Input
                     placeholder="10 a 15 dígitos"
