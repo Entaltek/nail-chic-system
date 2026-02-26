@@ -44,7 +44,7 @@ const registerSchema = z.object({
   telefono: z
     .string()
     .min(10, "Mínimo 10 dígitos")
-    .max(15, "Máximo 15 dígitos")
+    .max(10, "Máximo 10 dígitos")
     .regex(/^\d+$/, "Solo números"),
   password: z
     .string()
