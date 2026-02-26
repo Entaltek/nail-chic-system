@@ -121,10 +121,13 @@ export async function seedInventory() {
   ];
 
   items.forEach((item) => {
-    const doc = ref.doc(item.id);
-    batch.set(doc, item);
+    const doc = ref.doc();
+    batch.set(doc, {
+      ...item,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
   });
 
   await batch.commit();
-  console.log("✅ Inventory seed completado");
 }

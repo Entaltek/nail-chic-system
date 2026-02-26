@@ -1,37 +1,66 @@
 import { db } from "../../config/firebase";
-import { InventoryItem } from "./inventoryItem.model";
+import { InventoryItem } from "./inventory.model";
 
 const collection = db.collection("inventoryItems");
 
 export class InventoryRepository {
-  async create(item: InventoryItem) {
-    await collection.doc(item.id).set(item);
-    return item;
+
+  async create(item: Omit<InventoryItem, "id">) {
+    const docRef = collection.doc();
+
+    const newItem = {
+      id: docRef.id,
+      ...item
+    };
+
+    await docRef.set(newItem);
+
+    return newItem;
   }
 
-  async getAll() {
-    const snapshot = await collection.orderBy("name").get();
+  async findAll(): Promise<InventoryItem[]> {
+    const snapshot = await collection
+      .where("isActive", "==", true)
+      .orderBy("name")
+      .get();
+
     return snapshot.docs.map(doc => doc.data() as InventoryItem);
   }
 
-  async getById(id: string) {
+  async findById(id: string): Promise<InventoryItem | null> {
     const doc = await collection.doc(id).get();
-    return doc.exists ? (doc.data() as InventoryItem) : null;
+
+    if (!doc.exists) return null;
+
+    return doc.data() as InventoryItem;
   }
 
   async update(id: string, data: Partial<InventoryItem>) {
-    await collection.doc(id).update({
+    const docRef = collection.doc(id);
+    const doc = await docRef.get();
+
+    if (!doc.exists) return null;
+
+    await docRef.update({
       ...data,
       updatedAt: new Date()
     });
+
+    const updated = await docRef.get();
+    return updated.data() as InventoryItem;
   }
 
-  async delete(id: string) {
-    await collection.doc(id).delete();
-  }
+  async softDelete(id: string) {
+    const docRef = collection.doc(id);
+    const doc = await docRef.get();
 
-  async getLowStock(): Promise<InventoryItem[]> {
-    const snapshot = await collection.get();
-    return snapshot.docs.map(doc => doc.data() as InventoryItem);
-    }
+    if (!doc.exists) return null;
+
+    await docRef.update({
+      isActive: false,
+      updatedAt: new Date()
+    });
+
+    return true;
+  }
 }

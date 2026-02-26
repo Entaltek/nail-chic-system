@@ -27,23 +27,31 @@ export class InventoryMovementService {
     else if ("currentStock" in item) stockField = "currentStock";
     else throw new Error("This item does not handle stock movements");
 
-    let currentStock = item[stockField];
+    // Asegurar que sea número
+    let currentStock = Number(item[stockField] ?? 0);
+
+    if (isNaN(currentStock)) {
+      throw new Error("Invalid stock value in database");
+    }
 
     // Lógica de inventario
     let newStock = currentStock;
 
     if (data.type === "IN") {
-      newStock += data.quantity;
+      newStock = currentStock + data.quantity;
     }
 
     if (data.type === "OUT") {
       if (currentStock < data.quantity) {
         throw new Error("Not enough stock");
       }
-      newStock -= data.quantity;
+      newStock = currentStock - data.quantity;
     }
 
-    await itemRef.update({ [stockField]: newStock });
+    // Actualizar stock en Firestore
+    await itemRef.update({
+      [stockField]: newStock,
+    });
 
     // 🚨 ALERTAS DE STOCK BAJO
     if (stockField === "stockPieces" && "minStockPieces" in item) {
@@ -60,7 +68,6 @@ export class InventoryMovementService {
 
     // CREAR MOVIMIENTO
     const movement: any = {
-      id: crypto.randomUUID(),
       itemId: data.itemId,
       type: data.type,
       quantity: data.quantity,
@@ -71,9 +78,12 @@ export class InventoryMovementService {
       movement.reason = data.reason;
     }
 
-    await this.repo.create(movement);
+    const docRef = await this.repo.create(movement);
 
-    return movement;
+    return {
+      id: docRef.id,
+      ...movement
+    };
   }
 
   async getAllMovements() {

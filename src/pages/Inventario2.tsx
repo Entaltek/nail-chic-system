@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,7 @@ import {
   VisualStockStatus 
 } from "@/stores/businessConfig";
 import { toast } from "@/hooks/use-toast";
+import { getInventory } from "@/services/inventoryService";
 
 const superCategoryLabels: Record<SuperCategoryType, { label: string; emoji: string; description: string }> = {
   CONSUMIBLES_BASICOS: { label: 'Consumibles Básicos', emoji: '🔵', description: 'Stock exacto por pieza' },
@@ -61,11 +62,20 @@ const TOP_ITEMS_LIMIT = 5;
 
 export default function Inventario2() {
   const navigate = useNavigate();
-  const { inventory, inventoryCategories, addInventoryItem, updateInventoryItem, removeInventoryItem } = useBusinessConfig();
+  const { inventoryCategories, addInventoryItem, updateInventoryItem, removeInventoryItem, applyManualAdjustment } = useBusinessConfig();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSuperCategories, setSelectedSuperCategories] = useState<Set<SuperCategoryType>>(new Set());
+  const [adjustItem, setAdjustItem] = useState<InventoryItem | null>(null);
+  const [adjustAmount, setAdjustAmount] = useState('');
+  const [adjustReason, setAdjustReason] = useState('');
+  const [adjustType, setAdjustType] = useState<'in' | 'out'>('out');
+
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [loadingInventory, setLoadingInventory] = useState(true);
+
+
   // Dynamic form state based on category
   const [formData, setFormData] = useState({
     name: '',
@@ -96,6 +106,37 @@ export default function Inventario2() {
     });
   };
 
+  const loadInventory = async () => {
+    setLoadingInventory(true);
+    try {
+      const data = await getInventory();
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Error cargando inventario", variant: "destructive" });
+    } finally {
+      setLoadingInventory(false);
+    }
+  };
+
+  useEffect(() => {
+  const loadInventory = async () => {
+    try {
+      setLoadingInventory(true);
+
+      const data = await getInventory();
+
+      setInventory(data);
+    } catch (error) {
+      console.error("Error cargando inventario:", error);
+    } finally {
+      setLoadingInventory(false);
+    }
+  };
+
+  loadInventory();
+}, []);
+
+
   const clearFilters = () => {
     setSelectedSuperCategories(new Set());
     setSearchTerm('');
@@ -116,6 +157,13 @@ export default function Inventario2() {
       purchaseDate: '',
       usefulLifeMonths: '',
     });
+  };
+
+  const openAdjustDialog = (item: InventoryItem) => {
+    setAdjustItem(item);
+    setAdjustAmount('');
+    setAdjustReason('');
+    setAdjustType('out');
   };
 
   const handleAddItem = () => {
@@ -368,14 +416,30 @@ export default function Inventario2() {
             {getStatusBadge(status)}
           </>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100"
-          onClick={() => removeInventoryItem(item.id)}
-        >
-          <Trash2 className="h-3 w-3" />
-        </Button>
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={(e) => {
+              e.stopPropagation();
+              openAdjustDialog(item);
+            }}
+          >
+            <Plus className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-destructive hover:text-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+              removeInventoryItem(item.id);
+            }}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
       </div>
     );
   };
@@ -585,6 +649,77 @@ export default function Inventario2() {
                   )}
                 </div>
               </DialogContent>
+              <Dialog open={!!adjustItem} onOpenChange={(o) => !o && setAdjustItem(null)}>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Ajuste manual de inventario</DialogTitle>
+                  </DialogHeader>
+
+                  {adjustItem && (
+                    <div className="space-y-4">
+                      <div className="text-sm">
+                        <strong>{adjustItem.name}</strong>
+                      </div>
+
+                      {/* Tipo */}
+                      <div className="flex gap-2">
+                        <Button
+                          variant={adjustType === 'in' ? 'default' : 'outline'}
+                          onClick={() => setAdjustType('in')}
+                          className="flex-1"
+                        >
+                          ➕ Entrada
+                        </Button>
+                        <Button
+                          variant={adjustType === 'out' ? 'default' : 'outline'}
+                          onClick={() => setAdjustType('out')}
+                          className="flex-1"
+                        >
+                          ➖ Salida
+                        </Button>
+                      </div>
+
+                      {/* Cantidad */}
+                      {adjustItem.superCategory !== 'DECORACION_GRANEL' && (
+                        <div>
+                          <Label>Cantidad</Label>
+                          <Input
+                            type="number"
+                            value={adjustAmount}
+                            onChange={(e) => setAdjustAmount(e.target.value)}
+                          />
+                        </div>
+                      )}
+
+                      {/* Motivo */}
+                      <div>
+                        <Label>Motivo</Label>
+                        <Input
+                          placeholder="Uso extra, merma, ajuste físico…"
+                          value={adjustReason}
+                          onChange={(e) => setAdjustReason(e.target.value)}
+                        />
+                      </div>
+
+                      <Button
+                        className="w-full"
+                        onClick={() => {
+                          applyManualAdjustment(
+                            adjustItem.id,
+                            adjustType,
+                            parseFloat(adjustAmount || '0'),
+                            adjustReason
+                          );
+                          setAdjustItem(null);
+                        }}
+                      >
+                        Confirmar ajuste
+                      </Button>
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
+
             </Dialog>
           </div>
         </div>
@@ -632,59 +767,72 @@ export default function Inventario2() {
           </div>
         </div>
 
-        {/* Cards Grid - Grouped by Category within Super Category */}
-        <div className={`grid gap-4 ${isAllSelected ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
-          {filteredSuperCategories.map((superCat) => {
-            const categoryGroups = groupedBySuperCategory[superCat];
-            const info = superCategoryLabels[superCat];
-            
-            return categoryGroups.map(({ category, items }) => {
-              if (items.length === 0) return null;
-              
-              const topItems = items.slice(0, TOP_ITEMS_LIMIT);
-              const remainingCount = Math.max(0, items.length - TOP_ITEMS_LIMIT);
-              const criticalCount = items.filter(i => ['critical', 'urgent'].includes(getStockStatus(i))).length;
-              
-              return (
-                <Card 
-                  key={category.id} 
-                  className="shadow-card animate-fade-in overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
-                  onClick={() => navigate(`/inventario/categoria/${category.id}`)}
-                >
-                  <CardHeader className="py-2 px-3 bg-muted/30">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-6 h-6 rounded ${category.color} flex items-center justify-center text-xs`}>
-                        {category.icon}
-                      </div>
-                      <CardTitle className="text-sm flex-1">{category.name}</CardTitle>
-                      <Badge variant="secondary" className="text-xs">{items.length}</Badge>
-                      {criticalCount > 0 && <Badge variant="destructive" className="text-xs">{criticalCount}</Badge>}
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <CardDescription className="text-xs flex items-center gap-1">
-                      <span>{info.emoji}</span> {info.description}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-2">
-                    <div className="space-y-1">
-                      {topItems.map((item) => renderItemRow(item))}
-                    </div>
-                    
-                    {remainingCount > 0 && (
-                      <Button
-                        variant="ghost"
-                        className="w-full mt-2 text-xs h-8 text-muted-foreground hover:text-foreground"
-                        onClick={(e) => { e.stopPropagation(); navigate(`/inventario/categoria/${category.id}`); }}
-                      >
-                        Ver {remainingCount} más
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            });
-          })}
-        </div>
+        {/* Empty state or Cards Grid */}
+          {inventory.length === 0 ? (
+            <Card className="border-dashed bg-muted/20">
+              <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+                <Package className="h-10 w-10 text-muted-foreground mb-3" />
+                <h3 className="font-semibold">Aún no hay productos en el inventario</h3>
+                <p className="text-sm text-muted-foreground">
+                  Agrega tu primer material para comenzar a controlar tu stock.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className={`grid gap-4 ${isAllSelected ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
+              {filteredSuperCategories.map((superCat) => {
+                const categoryGroups = groupedBySuperCategory[superCat];
+                const info = superCategoryLabels[superCat];
+                
+                return categoryGroups.map(({ category, items }) => {
+                  if (items.length === 0) return null;
+                  
+                  const topItems = items.slice(0, TOP_ITEMS_LIMIT);
+                  const remainingCount = Math.max(0, items.length - TOP_ITEMS_LIMIT);
+                  const criticalCount = items.filter(i => ['critical', 'urgent'].includes(getStockStatus(i))).length;
+                  
+                  return (
+                    <Card 
+                      key={category.id} 
+                      className="shadow-card animate-fade-in overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                      onClick={() => navigate(`/inventario/categoria/${category.id}`)}
+                    >
+                      <CardHeader className="py-2 px-3 bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-6 h-6 rounded ${category.color} flex items-center justify-center text-xs`}>
+                            {category.icon}
+                          </div>
+                          <CardTitle className="text-sm flex-1">{category.name}</CardTitle>
+                          <Badge variant="secondary" className="text-xs">{items.length}</Badge>
+                          {criticalCount > 0 && <Badge variant="destructive" className="text-xs">{criticalCount}</Badge>}
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <CardDescription className="text-xs flex items-center gap-1">
+                          <span>{info.emoji}</span> {info.description}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-2">
+                        <div className="space-y-1">
+                          {topItems.map((item) => renderItemRow(item))}
+                        </div>
+                        
+                        {remainingCount > 0 && (
+                          <Button
+                            variant="ghost"
+                            className="w-full mt-2 text-xs h-8 text-muted-foreground hover:text-foreground"
+                            onClick={(e) => { e.stopPropagation(); navigate(`/inventario/categoria/${category.id}`); }}
+                          >
+                            Ver {remainingCount} más
+                          </Button>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                });
+              })}
+            </div>
+          )}
+
         {/* Legend */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in">
           <Info className="h-4 w-4" />

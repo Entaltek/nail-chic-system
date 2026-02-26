@@ -238,7 +238,7 @@ export default function GestionCategorias() {
       if (searchTerm) {
         categories = categories.filter(c => 
           c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          c.description.toLowerCase().includes(searchTerm.toLowerCase())
+          (c.description ?? '').toLowerCase().includes(searchTerm.toLowerCase())
         );
       }
       
@@ -449,8 +449,43 @@ export default function GestionCategorias() {
           </div>
         </div>
 
+        {/* EMPTY STATE GLOBAL */}
+          {inventoryCategories.length === 0 && (
+            <Card className="border-dashed border-2 bg-muted/20 mt-4">
+              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                <FolderOpen className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold">Aún no tienes categorías</h3>
+                <p className="text-sm text-muted-foreground max-w-sm mt-1">
+                  Las categorías te permiten organizar cómo se calcula el consumo,
+                  desgaste o depreciación de tus productos.
+                </p>
+
+                <Button className="mt-4" onClick={() => handleOpenDialog()}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Crear primera categoría
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
         {/* Categories by Super Category - Dynamic columns with Top 5 */}
-        <div className={`grid gap-4 ${isAllSelected ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
+        {inventoryCategories.length > 0 && (
+          <div className={`grid gap-4 ${isAllSelected ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
+            {filteredGroups.every(g => g.categories.length === 0) && (
+              <Card className="col-span-full border-dashed bg-muted/20 min-h[180px]">
+                <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+                  <Search className="h-10 w-10 text-muted-foreground mb-3" />
+                  <h3 className="font-semibold">No se encontraron categorías</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Prueba limpiar los filtros o cambiar el término de búsqueda.
+                  </p>
+
+                  <Button variant="outline" className="mt-3" onClick={clearFilters}>
+                    Limpiar filtros
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           {filteredGroups.map(({ superCategory, info, categories }) => {
             if (categories.length === 0) return null;
             
@@ -496,6 +531,7 @@ export default function GestionCategorias() {
             );
           })}
         </div>
+        )}
 
         {/* Expanded Super Category Modal */}
         <Dialog open={expandedSuperCategory !== null} onOpenChange={(open) => !open && setExpandedSuperCategory(null)}>

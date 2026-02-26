@@ -155,6 +155,23 @@ export interface ServiceLog {
   addOns: string[];
 }
 
+export type InventoryMovementType =
+  | 'PURCHASE'
+  | 'SERVICE_USE'
+  | 'MANUAL_ADJUST'
+  | 'WASTE'
+  | 'CORRECTION';
+
+export interface InventoryMovement {
+  id: string;
+  itemId: string;
+  delta: number;
+  type: InventoryMovementType;
+  reason?: string;
+  date: string;
+}
+
+
 // Design catalog item
 export interface DesignItem {
   id: string;
@@ -229,6 +246,13 @@ interface BusinessConfigState {
   addInventoryItem: (item: Omit<InventoryItem, 'id'>) => void;
   updateInventoryItem: (id: string, item: Partial<InventoryItem>) => void;
   removeInventoryItem: (id: string) => void;
+  
+  applyManualAdjustment: (
+    itemId: string,
+    type: 'in' | 'out',
+    amount: number,
+    reason: string
+  ) => void;
   
   // Extra actions
   addExtra: (extra: Omit<ExtraItem, 'id'>) => void;
@@ -426,6 +450,7 @@ const defaultServices: ServiceDefinition[] = [
 export const useBusinessConfig = create<BusinessConfigState>()(
   persist(
     (set, get) => ({
+      inventory: [],
       // Initial state
       businessName: 'Entaltek Nail Studio',
       monthlyWorkHours: 160,
@@ -442,7 +467,6 @@ export const useBusinessConfig = create<BusinessConfigState>()(
       
       inventoryCategories: [],
       setInventoryCategories: (categories) => set({ inventoryCategories: categories }),
-      inventory: defaultInventory,
       extras: defaultExtras,
       nailArtTiers: defaultNailArtTiers,
       services: defaultServices,
@@ -538,6 +562,50 @@ export const useBusinessConfig = create<BusinessConfigState>()(
         inventory: state.inventory.filter((i) => i.id !== id),
       })),
       
+      applyManualAdjustment: (itemId, type, amount, reason) =>
+        set((state) => {
+          return {
+            inventory: state.inventory.map((item) => {
+              if (item.id !== itemId) return item;
+
+              const delta = type === 'in' ? amount : -amount;
+
+              // CONSUMIBLES (piezas)
+              if (item.superCategory === 'CONSUMIBLES_BASICOS' || item.superCategory === 'DECORACION_CONTABLE') {
+                const newStock = Math.max(0, (item.stockPieces || 0) + delta);
+
+                return {
+                  ...item,
+                  stockPieces: newStock,
+                  daysUntilEmpty: item.weeklyUsageRate
+                    ? Math.floor((newStock / item.weeklyUsageRate) * 7)
+                    : item.daysUntilEmpty,
+                };
+              }
+
+              // QUÍMICOS
+              if (item.superCategory === 'QUIMICOS_GELES') {
+                const newStock = Math.max(0, (item.currentStock || 0) + delta);
+
+                return {
+                  ...item,
+                  currentStock: newStock,
+                };
+              }
+
+              // DECORACIÓN GRANEL
+              if (item.superCategory === 'DECORACION_GRANEL') {
+                return {
+                  ...item,
+                  visualStatus: type === 'out' ? 'bajo' : 'lleno',
+                };
+              }
+
+              return item;
+            }),
+          };
+        }),
+
       // Extra actions
       addExtra: (extra) => set((state) => ({
         extras: [...state.extras, { ...extra, id: Date.now().toString() }],

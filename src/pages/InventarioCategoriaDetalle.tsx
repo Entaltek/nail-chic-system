@@ -39,6 +39,7 @@ import {
   SortAsc,
   SortDesc,
   Plus,
+  Minus,
 } from "lucide-react";
 import { 
   useBusinessConfig, 
@@ -47,6 +48,7 @@ import {
   VisualStockStatus 
 } from "@/stores/businessConfig";
 import { toast } from "@/hooks/use-toast";
+import { createMovement } from "@/services/inventoryService";
 
 const superCategoryLabels: Record<SuperCategoryType, { label: string; emoji: string; description: string }> = {
   CONSUMIBLES_BASICOS: { label: 'Consumibles Básicos', emoji: '🔵', description: 'Stock exacto por pieza' },
@@ -75,10 +77,22 @@ export default function InventarioCategoriaDetalle() {
   const [sortField, setSortField] = useState<SortField>('status');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
+  const [adjustItem, setAdjustItem] = useState<InventoryItem | null>(null);
+  const [adjustQty, setAdjustQty] = useState<string>("");
+  const [adjustReason, setAdjustReason] = useState("");
+  const [adjustType, setAdjustType] = useState<"IN" | "OUT">("IN");
+
   // Find category - must be before all hooks complete
   const category = inventoryCategories.find(c => c.id === categoryId);
   const superCatInfo = category ? superCategoryLabels[category.superCategory] : null;
   const isGranel = category?.superCategory === 'DECORACION_GRANEL';
+
+  const qtyNumber = Number(adjustQty);
+  const isQtyValid = qtyNumber > 0;
+  const isReasonRequired = qtyNumber >= 10;
+  const isReasonValid = !isReasonRequired || adjustReason.trim().length > 0;
+
+  const canSave = isQtyValid && isReasonValid;
 
   // Get status for different category types
   const getStockStatus = (item: InventoryItem) => {
@@ -241,6 +255,50 @@ export default function InventarioCategoriaDetalle() {
     });
   };
 
+  const applyStockAdjustment = async () => {
+    if (!adjustItem) return;
+
+    const qty = Number(adjustQty);
+
+    if (!qty || qty <= 0) {
+      toast({
+        title: "Cantidad inválida",
+        description: "Ingresa una cantidad mayor a 0",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Si la cantidad es de dos cifras o más, exigir motivo
+    if (qty >= 10 && !adjustReason.trim()) {
+      toast({
+        title: "Motivo requerido",
+        description: "Debes ingresar una descripción para movimientos de 10 o más unidades",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+
+      // Registrar movimiento (AQUÍ VA LO NUEVO)
+      await createMovement({
+        itemId: adjustItem.id,
+        type: adjustType,
+        quantity: qty,
+        reason: adjustReason || undefined,
+      });
+
+      // Limpiar y cerrar modal
+      setAdjustItem(null);
+      setAdjustQty("");
+      setAdjustReason("");
+    } catch (error) {
+      console.error(error);
+      alert("Error al ajustar el stock");
+    }
+  };
+
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) return null;
     return sortDirection === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />;
@@ -349,65 +407,82 @@ export default function InventarioCategoriaDetalle() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/50" 
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort('name')}
                   >
                     <div className="flex items-center">
                       Material <SortIcon field="name" />
                     </div>
                   </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/50 text-right" 
+
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50 text-right"
                     onClick={() => handleSort('cost')}
                   >
                     <div className="flex items-center justify-end">
                       Costo <SortIcon field="cost" />
                     </div>
                   </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/50 text-center" 
+
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50 text-center"
                     onClick={() => handleSort('stock')}
                   >
                     <div className="flex items-center justify-center">
                       {isGranel ? 'Estado' : 'Stock'} <SortIcon field="stock" />
                     </div>
                   </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/50 text-center" 
+
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50 text-center"
                     onClick={() => handleSort('status')}
                   >
                     <div className="flex items-center justify-center">
                       Estado <SortIcon field="status" />
                     </div>
                   </TableHead>
+
+                  <TableHead className="text-center">Ajustar</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
+
               <TableBody>
                 {filteredItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      {searchTerm || statusFilter !== 'all' 
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      {searchTerm || statusFilter !== 'all'
                         ? 'No se encontraron materiales con estos filtros'
-                        : 'No hay materiales en esta categoría'
-                      }
+                        : 'No hay materiales en esta categoría'}
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredItems.map((item) => {
                     const status = getStockStatus(item);
+
                     return (
                       <TableRow key={item.id} className="group">
-                        <TableCell className="font-medium">{item.name}</TableCell>
+                        {/* Material */}
+                        <TableCell className="font-medium">
+                          {item.name}
+                        </TableCell>
+
+                        {/* Costo */}
                         <TableCell className="text-right font-semibold text-primary">
                           {getCostDisplay(item)}
                         </TableCell>
+
+                        {/* Stock */}
                         <TableCell className="text-center">
                           {isGranel ? (
                             <Select
                               value={item.visualStatus}
-                              onValueChange={(v) => updateInventoryItem(item.id, { visualStatus: v as VisualStockStatus })}
+                              onValueChange={(v) =>
+                                updateInventoryItem(item.id, {
+                                  visualStatus: v as VisualStockStatus,
+                                })
+                              }
                             >
                               <SelectTrigger className="w-24 h-8 mx-auto">
                                 <SelectValue />
@@ -421,16 +496,42 @@ export default function InventarioCategoriaDetalle() {
                               </SelectContent>
                             </Select>
                           ) : (
-                            <span className="text-muted-foreground">{getStockDisplay(item)}</span>
+                            <span className="text-muted-foreground">
+                              {getStockDisplay(item)}
+                            </span>
                           )}
                         </TableCell>
+
+                        {/* Estado */}
                         <TableCell className="text-center">
                           {getStatusBadge(status)}
                         </TableCell>
+
+                        {/* Ajustar */}
+                        <TableCell className="text-center">
+                          {item.superCategory === 'CONSUMIBLES_BASICOS' ||
+                          item.superCategory === 'DECORACION_CONTABLE' ||
+                          item.superCategory === 'QUIMICOS_GELES' ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setAdjustItem(item)}
+                            >
+                              Ajustar
+                            </Button>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        {/* Menú acciones */}
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 opacity-0 group-hover:opacity-100"
+                              >
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -439,7 +540,7 @@ export default function InventarioCategoriaDetalle() {
                                 <Edit className="h-4 w-4 mr-2" />
                                 Editar
                               </DropdownMenuItem>
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 className="text-destructive"
                                 onClick={() => handleDelete(item)}
                               >
@@ -463,6 +564,79 @@ export default function InventarioCategoriaDetalle() {
           Mostrando {filteredItems.length} de {inventory.filter(i => i.categoryId === categoryId).length} materiales
         </p>
       </div>
+      {adjustItem && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-background rounded-lg p-6 w-full max-w-sm space-y-4">
+            <h2 className="text-lg font-semibold">
+              Ajustar stock: {adjustItem.name}
+            </h2>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tipo de movimiento</label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={adjustType === "IN" ? "default" : "outline"}
+                  className="flex-1"
+                  onClick={() => setAdjustType("IN")}
+                >
+                  Entrada
+                </Button>
+                <Button
+                  type="button"
+                  variant={adjustType === "OUT" ? "destructive" : "outline"}
+                  className="flex-1"
+                  onClick={() => setAdjustType("OUT")}
+                >
+                  Salida
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Cantidad</label>
+              <Input
+                type="number"
+                min="1"
+                value={adjustQty}
+                onChange={(e) => setAdjustQty(e.target.value)}
+                placeholder="Cantidad"
+                className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <label className="text-sm font-medium">Motivo</label>
+              <Input
+                value={adjustReason}
+                onChange={(e) => setAdjustReason(e.target.value)}
+                placeholder="Opcional (obligatorio si son 10 o más)"
+              />
+              {isReasonRequired && !adjustReason.trim() && (
+                <p className="text-xs text-destructive">
+                  Debes ingresar un motivo para cantidades de 10 o más.
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setAdjustItem(null);
+                  setAdjustQty("");
+                  setAdjustReason("");
+                  setAdjustType("IN");
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={applyStockAdjustment}
+                disabled={!canSave}
+              >
+                Guardar ajuste
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </MainLayout>
   );
 }
