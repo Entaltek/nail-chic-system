@@ -11,7 +11,7 @@ import {
   Form, FormField, FormItem, FormLabel, FormControl, FormMessage,
 } from "@/components/ui/form";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
@@ -50,7 +50,7 @@ const clientSchema = z.object({
     .string()
     .trim()
     .min(1, "El teléfono es requerido")
-    .regex(/^\d{10,15}$/, "Debe tener entre 10 y 15 dígitos"),
+    .regex(/^\d{10}$/, "Ingrese los 10 dígitos"),
 });
 
 export type ClientFormValues = z.infer<typeof clientSchema>;
@@ -165,7 +165,7 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
     });
     toast({
       title: isEditMode ? "Cliente Actualizado" : "Cliente Agregado",
-      description: "Registro guardado con éxito.",
+      description: "Cliente ha sido guardado con éxito.",
     });
     form.reset();
   };
@@ -179,14 +179,11 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
   };
 
   const renderLoading = () => (
-    <div className="space-y-4 py-2">
-      <Skeleton className="h-10 w-full" />
-      <div className="grid grid-cols-2 gap-4">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-      </div>
+    <div className="flex flex-col items-center justify-center py-12 space-y-4 min-h-[200px]">
+      <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      <p className="text-muted-foreground text-sm font-medium">
+        Cargando información del cliente...
+      </p>
     </div>
   );
 
@@ -305,10 +302,10 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
                 </FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="10 a 15 dígitos"
+                    placeholder="Ingrese los 10 dígitos"
                     inputMode="numeric"
                     {...field}
-                    onChange={(e) => field.onChange(e.target.value.replace(/\D/g, "").slice(0, 15))}
+                    onChange={(e) => field.onChange(e.target.value.replace(/\D/g, "").slice(0, 10))}
                   />
                 </FormControl>
                 <FormMessage />
