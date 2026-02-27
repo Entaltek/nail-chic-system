@@ -1,5 +1,5 @@
-import { db } from "../config/firebase";
-import { Timestamp } from "firebase-admin/firestore";
+import {db} from "../config/firebase";
+import {Timestamp} from "firebase-admin/firestore";
 
 const now = Timestamp.now();
 
