@@ -1,44 +1,161 @@
-import { Request, Response } from "express";
-import { InventoryService } from "./inventory.service";
+import {Request, Response} from "express";
+import {InventoryService} from "./inventory.service";
+import {ApiResponse} from "../../shared/types/api-response";
 
-const service = new InventoryService();
-
-export class InventoryController {
-  async create(req: Request, res: Response) {
-    try {
-      const item = await service.createItem(req.body);
-      res.status(201).json(item);
-    } catch (e: any) {
-      res.status(400).json({ error: e.message });
-    }
-  }
+export const InventoryController = {
 
   async getAll(req: Request, res: Response) {
-    const items = await service.getItems();
-    res.json(items);
-  }
-
-  async getOne(req: Request, res: Response) {
     try {
-      const item = await service.getItem(req.params.id);
-      res.json(item);
-    } catch (e: any) {
-      res.status(404).json({ error: e.message });
+      const items = await InventoryService.getAll();
+
+      const response: ApiResponse<typeof items> = {
+        status: 1,
+        message: "Productos obtenidos correctamente",
+        data: items,
+      };
+
+      return res.status(200).json(response);
+    } catch (error: any) {
+      const response: ApiResponse<null> = {
+        status: 0,
+        message: error.message || "Error al obtener productos",
+      };
+
+      return res.status(500).json(response);
     }
-  }
+  },
+
+  async getById(req: Request, res: Response) {
+    try {
+      const {id} = req.params;
+
+      if (!id) {
+        const response: ApiResponse<null> = {
+          status: 0,
+          message: "Id requerido",
+        };
+        return res.status(400).json(response);
+      }
+
+      const item = await InventoryService.getById(id);
+
+      const response: ApiResponse<typeof item> = {
+        status: 1,
+        message: "Producto obtenido correctamente",
+        data: item,
+      };
+
+      return res.status(200).json(response);
+    } catch (error: any) {
+      const response: ApiResponse<null> = {
+        status: 0,
+        message: error.message || "Error al obtener producto",
+      };
+
+      if (error.message === "Producto no encontrado") {
+        return res.status(404).json(response);
+      }
+
+      return res.status(500).json(response);
+    }
+  },
+
+  async create(req: Request, res: Response) {
+    try {
+      const item = await InventoryService.create(req.body);
+
+      const response: ApiResponse<typeof item> = {
+        status: 1,
+        message: "Producto creado correctamente",
+        data: item,
+      };
+
+      return res.status(201).json(response);
+    } catch (error: any) {
+      const response: ApiResponse<null> = {
+        status: 0,
+        message: error.message || "Error al crear producto",
+      };
+
+      // errores de negocio (status: 2)
+      if (error.status === 2) {
+        return res.status(400).json(response);
+      }
+
+      return res.status(500).json(response);
+    }
+  },
 
   async update(req: Request, res: Response) {
-    await service.updateItem(req.params.id, req.body);
-    res.json({ message: "Actualizado" });
-  }
+    try {
+      const {id} = req.params;
+
+      if (!id) {
+        const response: ApiResponse<null> = {
+          status: 0,
+          message: "Id requerido",
+        };
+        return res.status(400).json(response);
+      }
+
+      const updatedItem = await InventoryService.update(id, req.body);
+
+      const response: ApiResponse<typeof updatedItem> = {
+        status: 1,
+        message: "Producto actualizado correctamente",
+        data: updatedItem,
+      };
+
+      return res.status(200).json(response);
+    } catch (error: any) {
+      const response: ApiResponse<null> = {
+        status: 0,
+        message: error.message || "Error al actualizar producto",
+      };
+
+      if (error.message === "Producto no encontrado") {
+        return res.status(404).json(response);
+      }
+
+      if (error.status === 2) {
+        return res.status(400).json(response);
+      }
+
+      return res.status(500).json(response);
+    }
+  },
 
   async delete(req: Request, res: Response) {
-    await service.deleteItem(req.params.id);
-    res.json({ message: "Eliminado" });
-  }
+    try {
+      const {id} = req.params;
 
-  async lowStock(req: Request, res: Response) {
-    const items = await service.getLowStockItems();
-    res.json(items);
-  }
-}
+      if (!id) {
+        const response: ApiResponse<null> = {
+          status: 0,
+          message: "Id requerido",
+        };
+        return res.status(400).json(response);
+      }
+
+      await InventoryService.delete(id);
+
+      const response: ApiResponse<null> = {
+        status: 1,
+        message: "Producto eliminado correctamente",
+      };
+
+      return res.status(200).json(response);
+    } catch (error: any) {
+      const response: ApiResponse<null> = {
+        status: 0,
+        message: error.message || "Error al eliminar producto",
+      };
+
+      if (error.message === "Producto no encontrado") {
+        return res.status(404).json(response);
+      }
+
+      return res.status(500).json(response);
+    }
+  },
+};

@@ -1,66 +1,89 @@
-import { db } from "../../config/firebase";
-import { InventoryItem } from "./inventory.model";
+import {db} from "../../config/firebase";
+import {InventoryItem, InventoryItemInput} from "./inventory.model";
+import {Timestamp} from "firebase-admin/firestore";
 
-const collection = db.collection("inventoryItems");
+const collection = db.collection("inventory");
 
-export class InventoryRepository {
-
-  async create(item: Omit<InventoryItem, "id">) {
-    const docRef = collection.doc();
-
-    const newItem = {
-      id: docRef.id,
-      ...item
-    };
-
-    await docRef.set(newItem);
-
-    return newItem;
-  }
-
+export const InventoryRepository = {
   async findAll(): Promise<InventoryItem[]> {
-    const snapshot = await collection
-      .where("isActive", "==", true)
-      .orderBy("name")
-      .get();
+    const snapshot = await collection.get();
 
-    return snapshot.docs.map(doc => doc.data() as InventoryItem);
-  }
+    return snapshot.docs.map((doc) => {
+      const data = doc.data() as InventoryItemInput & {
+        isActive: boolean;
+        createdAt: Timestamp;
+        updatedAt: Timestamp;
+      };
+
+      return {
+        id: doc.id,
+        ...data,
+      };
+    });
+  },
 
   async findById(id: string): Promise<InventoryItem | null> {
     const doc = await collection.doc(id).get();
 
     if (!doc.exists) return null;
 
-    return doc.data() as InventoryItem;
-  }
+    const data = doc.data() as InventoryItemInput & {
+      isActive: boolean;
+      createdAt: Timestamp;
+      updatedAt: Timestamp;
+    };
 
-  async update(id: string, data: Partial<InventoryItem>) {
+    return {
+      id: doc.id,
+      ...data,
+    };
+  },
+
+  async create(data: InventoryItemInput): Promise<InventoryItem> {
+    const now = Timestamp.now();
+
+    const docRef = await collection.add({
+      ...data,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const newDoc = await docRef.get();
+
+    return {
+      id: newDoc.id,
+      ...(newDoc.data() as InventoryItemInput & {
+        isActive: boolean;
+        createdAt: Timestamp;
+        updatedAt: Timestamp;
+      }),
+    };
+  },
+
+  async update(
+    id: string,
+    data: Partial<Omit<InventoryItem, "id" | "createdAt" | "updatedAt">>
+  ): Promise<InventoryItem | null> {
     const docRef = collection.doc(id);
-    const doc = await docRef.get();
 
+    const doc = await docRef.get();
     if (!doc.exists) return null;
 
     await docRef.update({
       ...data,
-      updatedAt: new Date()
+      updatedAt: Timestamp.now(),
     });
 
-    const updated = await docRef.get();
-    return updated.data() as InventoryItem;
-  }
+    const updatedDoc = await docRef.get();
 
-  async softDelete(id: string) {
-    const docRef = collection.doc(id);
-    const doc = await docRef.get();
-
-    if (!doc.exists) return null;
-
-    await docRef.update({
-      isActive: false,
-      updatedAt: new Date()
-    });
-
-    return true;
-  }
-}
+    return {
+      id: updatedDoc.id,
+      ...(updatedDoc.data() as InventoryItemInput & {
+        isActive: boolean;
+        createdAt: Timestamp;
+        updatedAt: Timestamp;
+      }),
+    };
+  },
+};
