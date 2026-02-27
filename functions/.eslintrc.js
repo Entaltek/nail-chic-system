@@ -26,6 +26,11 @@ module.exports = {
     "import",
   ],
   rules: {
+    "require-jsdoc": "off",
+    "new-cap": "off",
+    "@typescript-eslint/no-explicit-any": "off",
+    "max-len": ["error", {code: 120}],
+    "no-throw-literal": "off",
     "quotes": ["error", "double"],
     "import/no-unresolved": 0,
     "indent": ["error", 2],
