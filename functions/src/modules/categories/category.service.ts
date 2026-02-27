@@ -1,5 +1,5 @@
-import { CategoryRepository } from './category.repository';
-import { InventoryCategory } from './category.model';
+import {CategoryRepository} from "./category.repository";
+import {InventoryCategory} from "./category.model";
 
 export const CategoryService = {
   async getAll() {
@@ -17,44 +17,43 @@ export const CategoryService = {
   },
 
   async create(data: InventoryCategory) {
-
     if (!data.name?.trim()) {
       throw {
         status: 2,
-        message: 'El nombre es obligatorio'
+        message: "El nombre es obligatorio",
       };
     }
 
     if (!data.superCategory) {
       throw {
         status: 2,
-        message: 'La super categoría es obligatoria'
+        message: "La super categoría es obligatoria",
       };
     }
 
     if (!data.inventoryVariant) {
       throw {
         status: 2,
-        message: 'El tipo de inventario es obligatorio'
+        message: "El tipo de inventario es obligatorio",
       };
     }
 
     if (!data.icon?.emoji || !data.icon?.bgClass) {
       throw {
         status: 2,
-        message: 'El icono es obligatorio'
+        message: "El icono es obligatorio",
       };
     }
 
     const categories = await CategoryRepository.findAll();
     const exists = categories.some(
-      c => c.name.toLowerCase() === data.name.toLowerCase()
+      (c) => c.name.toLowerCase() === data.name.toLowerCase()
     );
 
     if (exists) {
       throw {
         status: 2,
-        message: 'Ya existe una categoría con ese nombre'
+        message: "Ya existe una categoría con ese nombre",
       };
     }
 
@@ -77,5 +76,5 @@ export const CategoryService = {
     }
 
     return updated;
-  }
+  },
 };

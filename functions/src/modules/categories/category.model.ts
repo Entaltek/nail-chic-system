@@ -1,5 +1,5 @@
-import { SuperCategoryType } from "./category.types";
-import { Timestamp } from "firebase-admin/firestore";
+import {SuperCategoryType} from "./category.types";
+import {Timestamp} from "firebase-admin/firestore";
 
 export type CategoryInventoryVariant =
   | "EXACT_PIECE"
@@ -25,4 +25,4 @@ export interface InventoryCategory extends InventoryCategoryBase {
   id: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
-} 
+}

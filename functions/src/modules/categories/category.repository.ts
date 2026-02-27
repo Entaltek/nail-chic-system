@@ -1,15 +1,15 @@
-import { db } from '../../config/firebase';
-import { Timestamp } from 'firebase-admin/firestore';
-import { InventoryCategory, InventoryCategoryBase } from './category.model';
+import {db} from "../../config/firebase";
+import {Timestamp} from "firebase-admin/firestore";
+import {InventoryCategory, InventoryCategoryBase} from "./category.model";
 
-const collection = db.collection('inventoryCategories');
+const collection = db.collection("inventoryCategories");
 
 export const CategoryRepository = {
 
   async findAll(): Promise<InventoryCategory[]> {
     const snap = await collection.get();
 
-    return snap.docs.map(d => ({
+    return snap.docs.map((d) => ({
       id: d.id,
       ...d.data(),
     } as InventoryCategory));
@@ -20,7 +20,7 @@ export const CategoryRepository = {
 
     if (!doc.exists) return null;
 
-    return { id: doc.id, ...doc.data() } as InventoryCategory;
+    return {id: doc.id, ...doc.data()} as InventoryCategory;
   },
 
   async create(data: InventoryCategoryBase): Promise<InventoryCategory> {
@@ -53,7 +53,7 @@ export const CategoryRepository = {
       updatedAt: new Date(),
     });
 
-    return { id, ...data };
+    return {id, ...data};
   },
 
   async remove(id: string): Promise<void> {
