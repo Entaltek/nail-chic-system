@@ -38,11 +38,12 @@ export const CategoryService = {
       };
     }
 
-    if (!data.icon?.emoji || !data.icon?.bgClass) {
-      throw {
-        status: 2,
-        message: "El icono es obligatorio",
-      };
+    if (
+      typeof data.icon !== "object" ||
+      !data.icon.emoji ||
+      !data.icon.bgClass
+    ) {
+      throw new Error("Icon inválido");
     }
 
     const categories = await CategoryRepository.findAll();
