@@ -1,5 +1,5 @@
-import { db } from "../config/firebase";
-import { Timestamp } from "firebase-admin/firestore";
+import {db} from "../config/firebase";
+import {Timestamp} from "firebase-admin/firestore";
 
 export async function seedInventory() {
   const batch = db.batch();

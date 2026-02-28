@@ -12,15 +12,17 @@ export interface InventoryCategoryBase {
   name: string;
   description?: string;
   superCategory: SuperCategoryType;
-  icon: {
-    emoji: string;
-    bgClass: string;
-  };
+  icon: string | { emoji: string; bgClass: string }; // <-- aquí
   inventoryVariant: CategoryInventoryVariant;
   isActive: boolean;
   order?: number;
 }
 
+export function isIconObject(
+  icon: string | { emoji: string; bgClass: string }
+): icon is { emoji: string; bgClass: string } {
+  return typeof icon === "object" && icon !== null && "emoji" in icon && "bgClass" in icon;
+}
 export interface InventoryCategory extends InventoryCategoryBase {
   id: string;
   createdAt: Timestamp;

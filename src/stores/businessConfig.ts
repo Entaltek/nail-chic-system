@@ -284,9 +284,19 @@ interface BusinessConfigState {
   };
 }
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 export async function fetchCategories() {
-  const res = await fetch(`${import.meta.env.VITE_API_URL}/categories`);
-  return res.json();
+  const res = await fetch(`${BASE_URL}/categories`);
+
+  if (!res.ok) {
+    throw new Error("Error obteniendo categorías");
+  }
+
+  const json = await res.json();
+
+  // Devuelve siempre un array para que .filter funcione
+  return Array.isArray(json.data) ? json.data : [];
 }
 
 // Default extras (Nail Art pricing) - now with types

@@ -1,5 +1,5 @@
-import { InventoryMovementRepository } from "./InventoryMovement.repository";
-import { db } from "../../config/firebase";
+import {InventoryMovementRepository} from "./InventoryMovement.repository";
+import {db} from "../../config/firebase";
 
 export class InventoryMovementService {
   private repo = new InventoryMovementRepository();
@@ -28,7 +28,7 @@ export class InventoryMovementService {
     else throw new Error("This item does not handle stock movements");
 
     // Asegurar que sea número
-    let currentStock = Number(item[stockField] ?? 0);
+    const currentStock = Number(item[stockField] ?? 0);
 
     if (isNaN(currentStock)) {
       throw new Error("Invalid stock value in database");
@@ -82,7 +82,7 @@ export class InventoryMovementService {
 
     return {
       id: docRef.id,
-      ...movement
+      ...movement,
     };
   }
 

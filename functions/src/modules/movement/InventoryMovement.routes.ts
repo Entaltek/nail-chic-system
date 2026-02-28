@@ -1,5 +1,5 @@
-import { Router } from "express";
-import { InventoryMovementController } from "./InventoryMovement.controller";
+import {Router} from "express";
+import {InventoryMovementController} from "./InventoryMovement.controller";
 
 const router = Router();
 

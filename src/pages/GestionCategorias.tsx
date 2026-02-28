@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { useBusinessConfig, InventoryCategory, SuperCategoryType, fetchCategories } from "@/stores/businessConfig";
 import { toast } from "@/hooks/use-toast";
+import { createCategory } from "@/services/categoryService";
 
 const superCategoryInfo: Record<SuperCategoryType, { label: string; description: string; icon: React.ReactNode; color: string; emoji: string }> = {
   CONSUMIBLES_BASICOS: {
@@ -117,6 +118,9 @@ export default function GestionCategorias() {
       });
   }, [setInventoryCategories]);
 
+  useEffect(() => {
+  }, [inventoryCategories]);
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<InventoryCategory | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -124,13 +128,23 @@ export default function GestionCategorias() {
   
   // Expanded super category modal
   const [expandedSuperCategory, setExpandedSuperCategory] = useState<SuperCategoryType | null>(null);
+
+  type IconType = string | { emoji: string; bgClass: string };
+
+  type FormDataType = {
+    name: string;
+    superCategory: SuperCategoryType;
+    description?: string;
+    color: string;
+    icon: IconType;
+  };
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormDataType>({
     name: '',
-    superCategory: 'QUIMICOS_GELES' as SuperCategoryType,
+    superCategory: 'QUIMICOS_GELES',
     description: '',
     color: 'bg-blue-500',
-    icon: '📦',
+    icon: { emoji: '📦', bgClass: 'bg-blue-500' },
   });
 
   // Toggle super category filter
@@ -157,7 +171,7 @@ export default function GestionCategorias() {
       superCategory: 'QUIMICOS_GELES',
       description: '',
       color: 'bg-blue-500',
-      icon: '📦',
+      icon: { emoji: '📦', bgClass: 'bg-blue-500' },
     });
     setEditingCategory(null);
   };
@@ -165,12 +179,17 @@ export default function GestionCategorias() {
   const handleOpenDialog = (category?: InventoryCategory) => {
     if (category) {
       setEditingCategory(category);
+
+      const iconNormalized = isIconObject(category.icon)
+        ? category.icon
+        : { emoji: category.icon, bgClass: category.color ?? 'bg-blue-500' };
+
       setFormData({
         name: category.name,
         superCategory: category.superCategory,
-        description: category.description,
-        color: category.color,
-        icon: category.icon,
+        description: category.description ?? '',
+        color: category.color ?? 'bg-blue-500',
+        icon: iconNormalized,
       });
     } else {
       resetForm();
@@ -178,32 +197,51 @@ export default function GestionCategorias() {
     setIsDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name.trim()) {
       toast({
         title: "Error",
-        description: "El nombre de la categoría es requerido",
+        description: "El nombre es requerido",
         variant: "destructive",
       });
       return;
     }
 
-    if (editingCategory) {
-      updateInventoryCategory(editingCategory.id, formData);
+    try {
+      if (!editingCategory) {
+        const response = await createCategory({
+          name: formData.name,
+          superCategory: formData.superCategory,
+          description: formData.description,
+          icon: formData.icon, // ✅ usar el objeto completo
+          inventoryVariant: "EXACT_PIECE",
+        });
+
+        console.log("RESPUESTA CREATE:", response);
+      }
+
+      const updated = await fetchCategories(); // siempre devuelve un array
+      console.log("CATEGORIAS ACTUALIZADAS:", updated);
+
+      setInventoryCategories(updated ?? []);
+
       toast({
-        title: "Categoría actualizada",
-        description: `${formData.name} ha sido actualizada`,
+        title: "Categoría guardada",
+        description: `${formData.name} fue creada correctamente`,
       });
-    } else {
-      addInventoryCategory(formData);
+
+      setIsDialogOpen(false);
+      resetForm();
+
+    } catch (error) {
+      console.error(error);
+
       toast({
-        title: "Categoría creada",
-        description: `${formData.name} ha sido agregada`,
+        title: "Error",
+        description: "No se pudo guardar la categoría",
+        variant: "destructive",
       });
     }
-
-    setIsDialogOpen(false);
-    resetForm();
   };
 
   const handleDelete = (category: InventoryCategory) => {
@@ -260,13 +298,17 @@ export default function GestionCategorias() {
 
   const isAllSelected = selectedSuperCategories.size === 0;
 
+  function isIconObject(icon: IconType): icon is { emoji: string; bgClass: string } {
+    return typeof icon === "object" && icon !== null && "emoji" in icon && "bgClass" in icon;
+  }
+
   // Render category row
   const renderCategoryRow = (category: InventoryCategory, showActions = true) => {
     const itemCount = getItemCount(category.id);
     return (
       <div key={category.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 group">
-        <div className={`w-6 h-6 rounded ${category.color} flex items-center justify-center text-xs`}>
-          {category.icon}
+        <div className={`w-6 h-6 rounded ${isIconObject(category.icon) ? category.icon.bgClass : category.color} flex items-center justify-center text-xs`}>
+          {isIconObject(category.icon) ? category.icon.emoji : category.icon}
         </div>
         <div className="flex-1 min-w-0">
           <span className="font-medium text-sm truncate block">{category.name}</span>
@@ -331,7 +373,15 @@ export default function GestionCategorias() {
                   </div>
                   <div>
                     <Label>Icono</Label>
-                    <Select value={formData.icon} onValueChange={(v) => setFormData({ ...formData, icon: v })}>
+                    <Select
+                      value={(formData.icon as { emoji: string; bgClass: string }).emoji} // ✅ cast
+                      onValueChange={(v) =>
+                        setFormData({
+                          ...formData,
+                          icon: { ...(formData.icon as { emoji: string; bgClass: string }), emoji: v },
+                        })
+                      }
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
