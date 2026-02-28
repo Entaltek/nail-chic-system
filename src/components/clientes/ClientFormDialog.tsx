@@ -115,7 +115,9 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
   const { toast } = useToast();
   const isEditMode = !!editClientId;
   const [fetchState, setFetchState] = useState<FetchState>("idle");
-
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] = useState<ClientFormValues | null>(null);
+//
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
@@ -156,7 +158,7 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
     }
   };
 
-  const handleSubmit = (data: ClientFormValues) => {
+  const executeSave = (data: ClientFormValues) => {
     onSave({
       ...data,
       nombres: formatName(data.nombres),
@@ -168,12 +170,25 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
       description: "Cliente ha sido guardado con éxito.",
     });
     form.reset();
+    setShowConfirm(false);
+    setPendingData(null);
+  };
+
+  const handleSubmit = (data: ClientFormValues) => {
+    if (isEditMode) {
+      setPendingData(data);
+      setShowConfirm(true); // Abre la ventanita de confirmación
+    } else {
+      executeSave(data); // Guarda directo si es nuevo cliente
+    }
   };
 
   const handleClose = (val: boolean) => {
     if (!val) {
       form.reset();
       setFetchState("idle");
+      setShowConfirm(false);
+      setPendingData(null);
     }
     onOpenChange(val);
   };
@@ -330,25 +345,47 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
   );
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent
-        className="sm:max-w-lg [&>button]:hidden"
-        onInteractOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
-      >
-        <DialogHeader>
-          <DialogTitle>{isEditMode ? "Editar Cliente" : "Nuevo Cliente"}</DialogTitle>
-          <DialogDescription>
-            {isEditMode
-              ? "Modifica los datos del cliente y guarda los cambios"
-              : "Completa los datos para registrar un nuevo cliente"}
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent
+          className="sm:max-w-lg [&>button]:hidden"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>{isEditMode ? "Editar Cliente" : "Nuevo Cliente"}</DialogTitle>
+            <DialogDescription>
+              {isEditMode
+                ? "Modifica los datos del cliente y guarda los cambios"
+                : "Completa los datos para registrar un nuevo cliente"}
+            </DialogDescription>
+          </DialogHeader>
 
-        {fetchState === "loading" && renderLoading()}
-        {fetchState === "error" && renderError()}
-        {(fetchState === "ready" || (!isEditMode && fetchState === "idle")) && renderForm()}
-      </DialogContent>
-    </Dialog>
+          {fetchState === "loading" && renderLoading()}
+          {fetchState === "error" && renderError()}
+          {(fetchState === "ready" || (!isEditMode && fetchState === "idle")) && renderForm()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal extra de confirmación */}
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar cambios</DialogTitle>
+            <DialogDescription>
+              ¿Seguro que deseas guardar los cambios?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0 mt-4">
+            <Button variant="outline" onClick={() => setShowConfirm(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={() => pendingData && executeSave(pendingData)}>
+              Sí, guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
