@@ -1,5 +1,17 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { auth, db } from "@/config/firebaseConfig";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 
 // Super Category Types - determines calculation logic
 export type SuperCategoryType = 
@@ -15,6 +27,7 @@ export type VisualStockStatus = 'lleno' | 'medio' | 'bajo';
 // Inventory category with wear logic
 export interface InventoryCategory {
   id: string;
+  userId?: string;
   name: string;
   superCategory: SuperCategoryType;
   description: string;
@@ -238,9 +251,9 @@ interface BusinessConfigState {
   removeTeamMember: (id: string) => void;
   
   // Category actions
-  addInventoryCategory: (category: Omit<InventoryCategory, 'id'>) => void;
-  updateInventoryCategory: (id: string, category: Partial<InventoryCategory>) => void;
-  removeInventoryCategory: (id: string) => void;
+  addInventoryCategory: (category: Omit<InventoryCategory, 'id'>) => Promise<void>;
+  updateInventoryCategory: (id: string, category: Partial<InventoryCategory>) => Promise<void>;
+  removeInventoryCategory: (id: string) => Promise<void>;
   
   // Inventory actions
   addInventoryItem: (item: Omit<InventoryItem, 'id'>) => void;
@@ -284,9 +297,20 @@ interface BusinessConfigState {
   };
 }
 
-export async function fetchCategories() {
-  const res = await fetch(`${import.meta.env.VITE_API_URL}/categories`);
-  return res.json();
+export async function fetchCategories(): Promise<InventoryCategory[]> {
+  const uid = requireUid();
+
+  const q = query(
+    collection(db, CATEGORIES_COL),
+    where("userId", "==", uid)
+  );
+
+  const snap = await getDocs(q);
+
+  return snap.docs.map((d) => {
+    const data = d.data() as Omit<InventoryCategory, "id">;
+    return { id: d.id, ...data };
+  });
 }
 
 // Default extras (Nail Art pricing) - now with types
@@ -534,20 +558,50 @@ export const useBusinessConfig = create<BusinessConfigState>()(
         teamMembers: state.teamMembers.filter((m) => m.id !== id),
       })),
       
-      // Category actions
-      addInventoryCategory: (category) => set((state) => ({
-        inventoryCategories: [...state.inventoryCategories, { ...category, id: Date.now().toString() }],
-      })),
-      
-      updateInventoryCategory: (id, category) => set((state) => ({
-        inventoryCategories: state.inventoryCategories.map((c) =>
-          c.id === id ? { ...c, ...category } : c
-        ),
-      })),
-      
-      removeInventoryCategory: (id) => set((state) => ({
-        inventoryCategories: state.inventoryCategories.filter((c) => c.id !== id),
-      })),
+      // Category actions (Firebase)
+      addInventoryCategory: async (category) => {
+        const uid = requireUid();
+
+        const ref = await addDoc(collection(db, CATEGORIES_COL), {
+          ...category,
+          userId: uid, // ✅ AQUÍ es donde se agrega
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+
+        // Actualiza estado local (optimista)
+        set((state) => ({
+          inventoryCategories: [
+            ...state.inventoryCategories,
+            { ...category, id: ref.id, userId: uid },
+          ],
+        }));
+      },
+
+      updateInventoryCategory: async (id, category) => {
+        requireUid();
+
+        await updateDoc(doc(db, CATEGORIES_COL, id), {
+          ...category,
+          updatedAt: serverTimestamp(),
+        });
+
+        set((state) => ({
+          inventoryCategories: state.inventoryCategories.map((c) =>
+            c.id === id ? { ...c, ...category } : c
+          ),
+        }));
+      },
+
+      removeInventoryCategory: async (id) => {
+        requireUid();
+
+        await deleteDoc(doc(db, CATEGORIES_COL, id));
+
+        set((state) => ({
+          inventoryCategories: state.inventoryCategories.filter((c) => c.id !== id),
+        }));
+      },
       
       // Inventory actions
       addInventoryItem: (item) => set((state) => ({

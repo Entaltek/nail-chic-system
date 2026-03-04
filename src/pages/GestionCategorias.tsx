@@ -178,7 +178,7 @@ export default function GestionCategorias() {
     setIsDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name.trim()) {
       toast({
         title: "Error",
@@ -187,6 +187,33 @@ export default function GestionCategorias() {
       });
       return;
     }
+
+    try {
+      if (editingCategory) {
+        await updateInventoryCategory(editingCategory.id, formData);
+        toast({
+          title: "Categoría actualizada",
+          description: `${formData.name} ha sido actualizada`,
+        });
+      } else {
+        await addInventoryCategory(formData);
+        toast({
+          title: "Categoría creada",
+          description: `${formData.name} ha sido agregada`,
+        });
+      }
+
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (e) {
+      console.error(e);
+      toast({
+        title: "Error",
+        description: "No se pudo guardar la categoría",
+        variant: "destructive",
+      });
+    }
+  };
 
     if (editingCategory) {
       updateInventoryCategory(editingCategory.id, formData);
@@ -206,7 +233,7 @@ export default function GestionCategorias() {
     resetForm();
   };
 
-  const handleDelete = (category: InventoryCategory) => {
+  const handleDelete = async (category: InventoryCategory) => {
     const itemsInCategory = inventory.filter(item => item.categoryId === category.id);
     if (itemsInCategory.length > 0) {
       toast({
@@ -217,11 +244,20 @@ export default function GestionCategorias() {
       return;
     }
 
-    removeInventoryCategory(category.id);
-    toast({
-      title: "Categoría eliminada",
-      description: `${category.name} ha sido eliminada`,
-    });
+    try {
+      await removeInventoryCategory(category.id);
+      toast({
+        title: "Categoría eliminada",
+        description: `${category.name} ha sido eliminada`,
+      });
+    } catch (e) {
+      console.error(e);
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la categoría",
+        variant: "destructive",
+      });
+    }
   };
 
   const getItemCount = (categoryId: string) => {
@@ -289,8 +325,6 @@ export default function GestionCategorias() {
           </div>
         )}
       </div>
-    );
-  };
 
   return (
     <MainLayout>
