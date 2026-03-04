@@ -1,8 +1,8 @@
 import {db} from "../../config/firebase";
-import {InventoryItem, InventoryItemInput} from "./inventory.model";
+import {InventoryItem, InventoryItemInput} from "./inventoryItem.model";
 import {Timestamp} from "firebase-admin/firestore";
 
-const collection = db.collection("inventory");
+const collection = db.collection("inventoryItems");
 
 export const InventoryRepository = {
   async findAll(): Promise<InventoryItem[]> {

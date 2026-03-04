@@ -1,5 +1,5 @@
 import {InventoryRepository} from "./inventory.repository";
-import {InventoryItem, InventoryItemInput} from "./inventory.model";
+import {InventoryItem, InventoryItemInput} from "./inventoryItem.model";
 
 export const InventoryService = {
   async getAll() {

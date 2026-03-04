@@ -1,7 +1,7 @@
 import express from 'express';
 import { NextFunction, Request, Response } from "express";
 import categoryRoutes from './modules/categories/category.routes';
-import inventoryRoutes from './modules/inventory/inventory.routes';
+import inventoryRoutes from "./modules/inventory/inventoryItem.routes";
 import inventoryMovementRoutes from "./modules/movement/InventoryMovement.routes";
 import clientRoutes from "./modules/clients/clients.routes";
 
@@ -19,7 +19,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/categories", categoryRoutes);
-app.use("/inventory-items", inventoryRoutes);
+app.use("/inventoryItems", inventoryRoutes);
 app.use("/inventory-movements", inventoryMovementRoutes);
 app.use("/clients", clientRoutes);
 

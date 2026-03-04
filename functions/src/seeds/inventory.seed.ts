@@ -1,5 +1,5 @@
-import {db} from "../config/firebase";
-import {Timestamp} from "firebase-admin/firestore";
+import { db } from "../config/firebase";
+import { Timestamp } from "firebase-admin/firestore";
 
 export async function seedInventory() {
   const batch = db.batch();
@@ -12,96 +12,70 @@ export async function seedInventory() {
     {
       name: "Guantes Nitrilo (Caja 100)",
       description: "Caja con 100 piezas talla mediana",
-      inventoryId: "CONSUMIBLE_GUANTES",
-      cost: {
-        amount: 200,
-        currency: "MXN",
-        per: "CAJA",
-      },
-      stock: {
-        value: 85,
-        unit: "PIEZA",
-      },
+      category: "CONSUMIBLES",
+      purchaseCost: 200,
+      presentationQuantity: 100,
+      stockPieces: 85,
+      minStock: 30,
+      dailyUsage: 5,
+      unit: "PIEZA",
+      currency: "MXN",
       isActive: true,
     },
     {
       name: "Lima 100/180",
       description: "Lima profesional doble grano",
-      inventoryId: "CONSUMIBLE_LIMA_100_180",
-      cost: {
-        amount: 150,
-        currency: "MXN",
-        per: "PAQUETE",
-      },
-      stock: {
-        value: 50,
-        unit: "PIEZA",
-      },
+      category: "CONSUMIBLES",
+      purchaseCost: 150,
+      presentationQuantity: 10,
+      stockPieces: 8, // bajo stock
+      minStock: 15,
+      dailyUsage: 2,
+      unit: "PIEZA",
+      currency: "MXN",
       isActive: true,
     },
 
     // 🧪 QUÍMICOS
     {
-      name: "Monómero Acrílico",
-      description: "Presentación de 500ml",
-      inventoryId: "QUIMICO_MONOMERO",
-      cost: {
-        amount: 500,
-        currency: "MXN",
-        per: "BOTELLA",
-      },
-      stock: {
-        value: 425,
-        unit: "ML",
-      },
+      name: "Monómero Acrílico 500ml",
+      description: "Presentación profesional",
+      category: "QUIMICOS",
+      purchaseCost: 500,
+      presentationQuantity: 500,
+      stockPieces: 425,
+      minStock: 100,
+      dailyUsage: 20,
+      unit: "ML",
+      currency: "MXN",
       isActive: true,
     },
     {
-      name: "Rubber Base",
-      description: "Base flexible para esmalte semipermanente",
-      inventoryId: "QUIMICO_RUBBER_BASE",
-      cost: {
-        amount: 350,
-        currency: "MXN",
-        per: "BOTELLA",
-      },
-      stock: {
-        value: 25,
-        unit: "ML",
-      },
+      name: "Rubber Base 15ml",
+      description: "Base flexible para esmalte",
+      category: "QUIMICOS",
+      purchaseCost: 350,
+      presentationQuantity: 15,
+      stockPieces: 5, // crítico
+      minStock: 10,
+      dailyUsage: 1,
+      unit: "ML",
+      currency: "MXN",
       isActive: true,
     },
 
     // 💎 DECORACIÓN
     {
-      name: "Cristales Swarovski Mix",
-      description: "Mix de cristales tamaño variado",
-      inventoryId: "DECORACION_SWAROVSKI",
-      cost: {
-        amount: 400,
-        currency: "MXN",
-        per: "PAQUETE",
-      },
-      stock: {
-        value: 425,
-        unit: "PIEZA",
-      },
-      isActive: true,
-    },
-
-    {
-      name: "Glitter Holográfico",
+      name: "Glitter Holográfico 10g",
       description: "Polvo efecto holográfico",
-      inventoryId: "DECORACION_GLITTER_HOLO",
-      cost: {
-        amount: 120,
-        currency: "MXN",
-        per: "FRASCO",
-      },
-      stock: {
-        value: 50,
-        unit: "GR",
-      },
+      category: "DECORACION",
+      purchaseCost: 120,
+      presentationQuantity: 10,
+      stockPieces: 2,
+      minStock: 5,
+      dailyUsage: 0.5,
+      unit: "GR",
+      currency: "MXN",
       isActive: true,
     },
 
@@ -109,25 +83,37 @@ export async function seedInventory() {
     {
       name: "Drill Profesional",
       description: "Torno eléctrico profesional para uñas",
-      inventoryId: "HERRAMIENTA_DRILL",
-      cost: {
-        amount: 2500,
-        currency: "MXN",
-        per: "PIEZA",
-      },
-      stock: {
-        value: 1,
-        unit: "PIEZA",
-      },
+      category: "HERRAMIENTAS",
+      purchaseCost: 2500,
+      presentationQuantity: 1,
+      stockPieces: 1,
+      minStock: 1,
+      dailyUsage: 0,
+      unit: "PIEZA",
+      currency: "MXN",
       isActive: true,
+    },
+
+    // 🔥 Para probar soft delete
+    {
+      name: "Kit Pinceles Nail Art",
+      description: "Kit profesional 12 piezas",
+      category: "HERRAMIENTAS",
+      purchaseCost: 600,
+      presentationQuantity: 12,
+      stockPieces: 12,
+      minStock: 3,
+      dailyUsage: 0.3,
+      unit: "KIT",
+      currency: "MXN",
+      isActive: false,
     },
   ];
 
   items.forEach((item) => {
-    const docRef = ref.doc();
+    const docRef = ref.doc(); // 🔥 Firebase genera ID automático
 
     batch.set(docRef, {
-      id: docRef.id,
       ...item,
       createdAt: now,
       updatedAt: now,

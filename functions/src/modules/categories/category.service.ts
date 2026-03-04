@@ -1,5 +1,12 @@
-import {CategoryRepository} from "./category.repository";
-import {InventoryCategory} from "./category.model";
+import { CategoryRepository } from "./category.repository";
+import { InventoryCategory } from "./category.model";
+
+// Type guard para validar que icon sea un objeto con emoji y bgClass
+function isIconObject(
+  icon: string | { emoji: string; bgClass: string }
+): icon is { emoji: string; bgClass: string } {
+  return typeof icon === "object" && icon !== null && "emoji" in icon && "bgClass" in icon;
+}
 
 export const CategoryService = {
   async getAll() {
@@ -38,7 +45,8 @@ export const CategoryService = {
       };
     }
 
-    if (!data.icon?.emoji || !data.icon?.bgClass) {
+    // Validación del icon usando el type guard
+    if (!isIconObject(data.icon) || !data.icon.emoji || !data.icon.bgClass) {
       throw {
         status: 2,
         message: "El icono es obligatorio",
@@ -60,13 +68,24 @@ export const CategoryService = {
     return CategoryRepository.create(data);
   },
 
-  async update(id: string, data: Partial<Omit<InventoryCategory, "id" | "createdAt" | "updatedAt">>) {
+  async update(
+    id: string,
+    data: Partial<Omit<InventoryCategory, "id" | "createdAt" | "updatedAt">>
+  ) {
     if (!id) {
       throw new Error("Id requerido");
     }
 
     if (data.name !== undefined && !data.name.trim()) {
       throw new Error("El nombre no puede estar vacío");
+    }
+
+    // Validación del icon en update si viene incluido
+    if (data.icon !== undefined && (!isIconObject(data.icon) || !data.icon.emoji || !data.icon.bgClass)) {
+      throw {
+        status: 2,
+        message: "El icono es obligatorio",
+      };
     }
 
     const updated = await CategoryRepository.update(id, data);
