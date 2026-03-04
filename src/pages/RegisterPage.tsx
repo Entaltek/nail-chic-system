@@ -23,6 +23,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import logoEntaltek from "@/assets/logo_entaltek.png";
+import { createUserWithEmailAndPassword, type AuthError } from "firebase/auth";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "@/config/firebaseConfig";
 
 const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
 
@@ -88,12 +91,14 @@ export default function RegisterPage() {
   const { theme, toggleTheme } = useTheme();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     watch,
     setValue,
+    setError, // 👈 agrégalo aquí
     formState: { errors, isValid },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -117,10 +122,60 @@ export default function RegisterPage() {
 
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsLoading(false);
-    // Redirect to login with email pre-filled
-    navigate(`/login?email=${encodeURIComponent(data.correo)}`);
+    setAuthError(null);
+
+    try {
+      // 1) Crear usuario en Firebase Auth
+      const cred = await createUserWithEmailAndPassword(auth, data.correo, data.password);
+
+      // 2) Crear documento del usuario en Firestore (users/{uid})
+      await setDoc(doc(db, "users", cred.user.uid), {
+        email: data.correo,
+        nombres: data.nombres,
+        apellidoPaterno: data.apellidoPaterno,
+        apellidoMaterno: data.apellidoMaterno ?? "",
+        telefono: data.telefono,
+        role: data.esDueno ? "owner" : "employee",
+        createdAt: serverTimestamp(),
+        config: {
+          monthlyWorkHours: 0,
+          desiredMonthlySalary: 0,
+          includeAguinaldo: false,
+          annualInsurance: 0,
+        },
+      });
+
+      // ✅ Ya queda logueado automáticamente
+      navigate("/", { replace: true });
+
+      // Si prefieres mandarlo al login con email prellenado, usa esto en vez de lo de arriba:
+      // navigate(`/login?email=${encodeURIComponent(data.correo)}`, { replace: true });
+
+    } catch (error) {
+      const e = error as AuthError;
+
+      switch (e.code) {
+        case "auth/email-already-in-use":
+          setError("correo", { type: "manual", message: "Este correo ya está registrado" });
+          break;
+        case "auth/invalid-email":
+          setError("correo", { type: "manual", message: "Correo inválido" });
+          break;
+        case "auth/weak-password":
+          setError("password", { type: "manual", message: "Contraseña débil. Intenta otra." });
+          break;
+        case "auth/network-request-failed":
+          setAuthError("Error de conexión. Revisa tu internet.");
+          break;
+        case "permission-denied":
+          setAuthError("Firestore rechazó permisos. Revisa las Rules de Firestore.");
+          break;
+        default:
+          setAuthError("Ocurrió un error inesperado. Intenta de nuevo.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const isEntaltek = theme === "corporate";
@@ -235,10 +290,15 @@ export default function RegisterPage() {
                 />
               </div>
               <AnimatePresence>
-                {errors.nombres && (
-                  <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="text-xs text-destructive font-medium">
-                    {errors.nombres.message}
-                  </motion.p>
+                {authError && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg text-center font-medium border border-destructive/20"
+                  >
+                    {authError}
+                  </motion.div>
                 )}
               </AnimatePresence>
             </motion.div>

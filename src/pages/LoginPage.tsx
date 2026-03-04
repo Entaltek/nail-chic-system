@@ -5,6 +5,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
+
+// --- FIREBASE IMPORTS ---
+import { signInWithEmailAndPassword, AuthError } from "firebase/auth";
+import { auth } from "@/config/firebaseConfig";
 import { useTheme } from "@/hooks/useTheme";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import SplashScreen from "@/components/auth/SplashScreen";
 import logoEntaltek from "@/assets/logo_entaltek.png";
 
+// Esquema de validación
 const loginSchema = z.object({
   email: z.string().email("Ingresa un correo válido"),
   password: z.string().min(6, "Mínimo 6 caracteres"),
@@ -25,13 +30,17 @@ export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const prefillEmail = searchParams.get("email") || "";
   const { theme, toggleTheme } = useTheme();
+
+  // Estados locales
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showSplash, setShowSplash] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null); // Para errores generales de Firebase
 
   const {
     register,
     handleSubmit,
+    setError, // Importante para marcar errores en campos específicos
     formState: { errors, isValid },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -42,16 +51,52 @@ export default function LoginPage() {
     },
   });
 
-  const onSubmit = async (_data: LoginFormData) => {
+  // --- LÓGICA DE LOGIN CON FIREBASE ---
+  const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
-    // Simulate Firebase signInWithEmailAndPassword
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsLoading(false);
-    setShowSplash(true);
+    setAuthError(null); // Limpiar errores previos
+
+    try {
+      // Intento de inicio de sesión
+      await signInWithEmailAndPassword(auth, data.email, data.password);
+
+      // Si tiene éxito:
+      setIsLoading(false);
+      setShowSplash(true); // Mostrar animación de entrada
+
+    } catch (error) {
+      setIsLoading(false);
+      const firebaseError = error as AuthError;
+      console.error("Error de autenticación:", firebaseError.code);
+
+      // Manejo de errores específicos para mejorar UX
+      switch (firebaseError.code) {
+        case "auth/invalid-credential":
+        case "auth/user-not-found":
+        case "auth/wrong-password":
+          // Marcamos el error en el input de contraseña
+          setError("password", {
+            type: "manual",
+            message: "Credenciales incorrectas"
+          });
+          break;
+        case "auth/too-many-requests":
+          setAuthError("Demasiados intentos fallidos. Por seguridad, espera unos minutos.");
+          break;
+        case "auth/user-disabled":
+          setAuthError("Esta cuenta ha sido deshabilitada por el administrador.");
+          break;
+        case "auth/network-request-failed":
+          setAuthError("Error de conexión. Revisa tu internet.");
+          break;
+        default:
+          setAuthError("Ocurrió un error inesperado. Intenta de nuevo.");
+      }
+    }
   };
 
   const handleSplashComplete = () => {
-    navigate("/");
+    navigate("/"); // Redirigir al Dashboard al terminar la animación
   };
 
   const isEntaltek = theme === "corporate";
@@ -65,7 +110,7 @@ export default function LoginPage() {
           <motion.div
             key="login"
             className="fixed inset-0 flex items-center justify-center overflow-hidden"
-            style={{ 
+            style={{
               background: "var(--login-bg-gradient)",
               color: "hsl(var(--login-text))"
             }}
@@ -74,7 +119,7 @@ export default function LoginPage() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4 }}
           >
-            {/* Floating orbs background */}
+            {/* Background Orbs */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
               <motion.div
                 className="absolute w-72 h-72 rounded-full opacity-20 blur-3xl"
@@ -90,7 +135,7 @@ export default function LoginPage() {
               />
             </div>
 
-            {/* Theme toggle */}
+            {/* Theme Toggle (Entaltek vs Naila) */}
             <motion.div
               className="absolute top-6 right-6 flex items-center gap-3 z-10"
               initial={{ opacity: 0, y: -10 }}
@@ -107,7 +152,7 @@ export default function LoginPage() {
               />
             </motion.div>
 
-            {/* Glass card */}
+            {/* Glass Login Card */}
             <motion.div
               className="relative z-10 w-full max-w-md mx-4"
               initial={{ opacity: 0, y: 40, scale: 0.95 }}
@@ -122,7 +167,7 @@ export default function LoginPage() {
                   boxShadow: "var(--login-glass-shadow)",
                 }}
               >
-                {/* Logo */}
+                {/* Header / Logo */}
                 <motion.div
                   className="flex flex-col items-center mb-8"
                   initial={{ opacity: 0, scale: 0.8 }}
@@ -150,9 +195,10 @@ export default function LoginPage() {
                   </p>
                 </motion.div>
 
-                {/* Form */}
+                {/* Formulario */}
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-                  {/* Email */}
+
+                  {/* Campo Email */}
                   <motion.div
                     className="space-y-2"
                     initial={{ opacity: 0, x: -20 }}
@@ -188,7 +234,7 @@ export default function LoginPage() {
                     </AnimatePresence>
                   </motion.div>
 
-                  {/* Password */}
+                  {/* Campo Password */}
                   <motion.div
                     className="space-y-2"
                     initial={{ opacity: 0, x: -20 }}
@@ -235,7 +281,7 @@ export default function LoginPage() {
                     </AnimatePresence>
                   </motion.div>
 
-                  {/* Forgot password link */}
+                  {/* Link Olvidé Contraseña */}
                   <motion.div
                     className="flex justify-end"
                     initial={{ opacity: 0 }}
@@ -250,7 +296,21 @@ export default function LoginPage() {
                     </button>
                   </motion.div>
 
-                  {/* Submit */}
+                  {/* Mensaje de Error Global (Auth Error) */}
+                  <AnimatePresence>
+                    {authError && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg text-center font-medium border border-destructive/20"
+                      >
+                        {authError}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Botón Submit */}
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -278,7 +338,7 @@ export default function LoginPage() {
                     </Button>
                   </motion.div>
 
-                  {/* Link to register */}
+                  {/* Link Registro */}
                   <motion.p
                     className="text-center text-sm opacity-60"
                     initial={{ opacity: 0 }}

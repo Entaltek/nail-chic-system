@@ -28,16 +28,32 @@
  *   }
  * }
  */
+/**
+ * Firebase Configuration
+ */
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
-// Firebase configuration object - Replace with your values
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyAJlz4bQfVrY9QBoH9Lr-wrdcLwB55ANDo",
+  authDomain: "athleek-sys.firebaseapp.com",
+  databaseURL: "https://athleek-sys-default-rtdb.firebaseio.com",
+  projectId: "athleek-sys",
+  storageBucket: "athleek-sys.firebasestorage.app",
+  messagingSenderId: "587148598592",
+  appId: "1:587148598592:web:904fe73541c18cdbe0aea5",
 };
+
+const app = initializeApp(firebaseConfig);
+
+// ✅ Exporta instancias reales (NO null)
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);
+
+export default app;
 
 // Uncomment when ready to use Firebase:
 // import { initializeApp } from 'firebase/app';
@@ -51,11 +67,6 @@ const firebaseConfig = {
 // export const storage = getStorage(app);
 
 // Placeholder exports for development
-export const db = null;
-export const auth = null;
-export const storage = null;
-
-export default firebaseConfig;
 
 /**
  * Suggested Firestore Collections Structure:
