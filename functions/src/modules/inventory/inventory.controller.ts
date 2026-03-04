@@ -6,22 +6,22 @@ export const InventoryController = {
 
   async getAll(req: Request, res: Response) {
     try {
-      const items = await InventoryService.getAll();
+      // Mock de inventario
+      const inventoryItems = [
+        { id: "1", name: "Guantes Nitrilo", stock: 100, isActive: true },
+        { id: "2", name: "Mascarilla", stock: 50, isActive: true },
+      ];
 
-      const response: ApiResponse<typeof items> = {
+      return res.status(200).json({
         status: 1,
         message: "Productos obtenidos correctamente",
-        data: items,
-      };
-
-      return res.status(200).json(response);
+        data: inventoryItems,
+      });
     } catch (error: any) {
-      const response: ApiResponse<null> = {
+      return res.status(500).json({
         status: 0,
         message: error.message || "Error al obtener productos",
-      };
-
-      return res.status(500).json(response);
+      });
     }
   },
 
