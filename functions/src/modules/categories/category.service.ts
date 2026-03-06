@@ -1,5 +1,5 @@
 import { CategoryRepository } from "./category.repository";
-import { InventoryCategory } from "./category.model";
+import { InventoryCategory, InventoryCategoryBase } from "./category.model";
 
 // Type guard para validar que icon sea un objeto con emoji y bgClass
 function isIconObject(
@@ -23,7 +23,7 @@ export const CategoryService = {
     return category;
   },
 
-  async create(data: InventoryCategory) {
+  async create(data: InventoryCategoryBase) {
     if (!data.name?.trim()) {
       throw {
         status: 2,
