@@ -1,47 +1,32 @@
-import {z} from "zod";
-import {Timestamp} from "firebase-admin/firestore";
+import { Timestamp } from "firebase-admin/firestore";
+import { SuperCategoryType } from "../categories/category.types";
 
-export const UnitType = z.enum([
-  "PIEZA",
-  "ML",
-  "GR",
-  "KIT",
-  "PAQUETE",
-]);
+export interface InventoryItemBase {
+  name: string;
+  categoryId: string;
+  category: string; // se guarda como referencia rápida (lo llena backend)
+  superCategory: SuperCategoryType;
+  purchaseCost: number;
+  stockPieces: number;
+  minStockPieces: number;
+  weeklyUsageRate: number;
+}
 
-export const CurrencyType = z.enum([
-  "MXN",
-]);
+export interface InventoryDerivedFields {
+  costPerPiece: number;
+  daysUntilEmpty: number | null;
+}
 
-const CostSchema = z.object({
-  amount: z.number().positive(),
-  currency: CurrencyType,
-  per: z.string().min(1),
-});
-
-const StockSchema = z.object({
-  value: z.number().int().nonnegative(),
-  unit: UnitType,
-});
-
-export const InventoryItemSchema = z.object({
-  name: z.string().min(2),
-  description: z.string().optional(),
-
-  inventoryId: z.string().min(1),
-
-  cost: CostSchema,
-  stock: StockSchema,
-
-  isActive: z.boolean().default(true),
-});
-
-export type InventoryItemInput = z.infer<typeof InventoryItemSchema>;
-
-export type InventoryItemBase = InventoryItemInput;
-
-export interface InventoryItem extends InventoryItemBase {
+export interface InventoryItem extends InventoryItemBase, InventoryDerivedFields {
   id: string;
+  isActive: boolean;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
+
+export type CreateInventoryItemInput = Omit<
+  InventoryItemBase,
+  "category"
+>;
+
+export type UpdateInventoryItemInput = Partial<CreateInventoryItemInput>;

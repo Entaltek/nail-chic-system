@@ -1,5 +1,30 @@
 import {InventoryRepository} from "./inventory.repository";
-import {InventoryItem, InventoryItemInput} from "./inventoryItem.model";
+import {
+  CreateInventoryItemInput,
+  UpdateInventoryItemInput,
+} from "./inventoryItem.model";
+import {CategoryRepository} from "../categories/category.repository";
+
+const throwBusiness = (message: string): never => {
+  throw {
+    status: 2,
+    message,
+  };
+};
+
+const calculateDerivedFields = (
+  purchaseCost: number,
+  stockPieces: number,
+  weeklyUsageRate: number
+) => {
+  const costPerPiece = purchaseCost;
+  const daysUntilEmpty =
+    weeklyUsageRate === 0 ?
+      null :
+      Number(((stockPieces / weeklyUsageRate) * 7).toFixed(2));
+
+  return {costPerPiece, daysUntilEmpty};
+};
 
 export const InventoryService = {
   async getAll() {
@@ -17,77 +42,122 @@ export const InventoryService = {
     return item;
   },
 
-  async create(data: InventoryItemInput) {
+  async create(data: CreateInventoryItemInput) {
     if (!data.name?.trim()) {
-      throw {
-        status: 2,
-        message: "El nombre es obligatorio",
-      };
+      throwBusiness("El nombre es obligatorio");
     }
 
-    if (!data.inventoryId) {
-      throw {
-        status: 2,
-        message: "La categoría es obligatoria",
-      };
+    if (data.purchaseCost < 0) {
+      throwBusiness("El costo no puede ser negativo");
     }
 
-    if (!data.cost || data.cost.amount <= 0) {
-      throw {
-        status: 2,
-        message: "El costo debe ser mayor a 0",
-      };
+    if (data.stockPieces < 0) {
+      throwBusiness("El stock no puede ser negativo");
     }
 
-    const items = await InventoryRepository.findAll();
+    if (data.minStockPieces < 0) {
+      throwBusiness("El stock minimo no puede ser negativo");
+    }
 
-    const exists = items.some(
-      (i) =>
-        i.isActive &&
-        i.inventoryId === data.inventoryId &&
-        i.name.trim().toLowerCase() === data.name.trim().toLowerCase()
+    if (data.minStockPieces > data.stockPieces) {
+      throwBusiness("El stock minimo no puede ser mayor al stock actual");
+    }
+
+    if (data.weeklyUsageRate < 0) {
+      throwBusiness("El consumo semanal no puede ser negativo");
+    }
+
+    const categoryRecord = await CategoryRepository.findById(data.categoryId);
+    if (!categoryRecord || !categoryRecord.isActive) {
+      throwBusiness("La categoria no existe");
+    }
+    const category = categoryRecord!;
+
+    if (category.superCategory !== data.superCategory) {
+      throwBusiness("La super categoria no coincide con la categoria");
+    }
+
+    const derived = calculateDerivedFields(
+      data.purchaseCost,
+      data.stockPieces,
+      data.weeklyUsageRate
     );
-
-    if (exists) {
-      throw {
-        status: 2,
-        message: "Ya existe un producto con ese nombre en esta categoría",
-      };
-    }
 
     return InventoryRepository.create({
       ...data,
       name: data.name.trim(),
+      category: category.name,
+      ...derived,
       isActive: true,
     });
   },
 
-  async update(
-    id: string,
-    data: Partial<Omit<InventoryItem, "id" | "createdAt" | "updatedAt">>
-  ) {
+  async update(id: string, data: UpdateInventoryItemInput) {
     if (!id) {
-      throw {
-        status: 2,
-        message: "Id requerido",
-      };
+      throwBusiness("Id requerido");
     }
 
-    if (data.name !== undefined && !data.name.trim()) {
-      throw {
-        status: 2,
-        message: "El nombre no puede estar vacío",
-      };
+    const current = await InventoryRepository.findById(id);
+    if (!current || !current.isActive) {
+      throw new Error("Producto no encontrado");
     }
 
-    if (data.cost && data.cost.amount <= 0) {
-      throw {
-        status: 2,
-        message: "El costo debe ser mayor a 0",
-      };
+    const merged = {
+      name: data.name?.trim() ?? current.name,
+      categoryId: data.categoryId ?? current.categoryId,
+      superCategory: data.superCategory ?? current.superCategory,
+      purchaseCost: data.purchaseCost ?? current.purchaseCost,
+      stockPieces: data.stockPieces ?? current.stockPieces,
+      minStockPieces: data.minStockPieces ?? current.minStockPieces,
+      weeklyUsageRate: data.weeklyUsageRate ?? current.weeklyUsageRate,
+    };
+
+    if (!merged.name) {
+      throwBusiness("El nombre es obligatorio");
     }
 
-    const updated = await InventoryRepository.update(id, data);
+    if (merged.purchaseCost < 0) {
+      throwBusiness("El costo no puede ser negativo");
+    }
+
+    if (merged.stockPieces < 0) {
+      throwBusiness("El stock no puede ser negativo");
+    }
+
+    if (merged.minStockPieces < 0) {
+      throwBusiness("El stock minimo no puede ser negativo");
+    }
+
+    if (merged.minStockPieces > merged.stockPieces) {
+      throwBusiness("El stock minimo no puede ser mayor al stock actual");
+    }
+
+    if (merged.weeklyUsageRate < 0) {
+      throwBusiness("El consumo semanal no puede ser negativo");
+    }
+
+    const categoryRecord = await CategoryRepository.findById(merged.categoryId);
+    if (!categoryRecord || !categoryRecord.isActive) {
+      throwBusiness("La categoria no existe");
+    }
+    const category = categoryRecord!;
+
+    if (category.superCategory !== merged.superCategory) {
+      throwBusiness("La super categoria no coincide con la categoria");
+    }
+
+    const derived = calculateDerivedFields(
+      merged.purchaseCost,
+      merged.stockPieces,
+      merged.weeklyUsageRate
+    );
+
+    const updated = await InventoryRepository.update(id, {
+      ...data,
+      ...merged,
+      category: category.name,
+      ...derived,
+    });
 
     if (!updated) {
       throw new Error("Producto no encontrado");

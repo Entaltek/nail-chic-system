@@ -1,5 +1,5 @@
 import {db} from "../../config/firebase";
-import {InventoryItem, InventoryItemInput} from "./inventoryItem.model";
+import {InventoryItem} from "./inventoryItem.model";
 import {Timestamp} from "firebase-admin/firestore";
 
 const collection = db.collection("inventoryItems");
@@ -9,7 +9,7 @@ export const InventoryRepository = {
     const snapshot = await collection.get();
 
     return snapshot.docs.map((doc) => {
-      const data = doc.data() as InventoryItemInput & {
+      const data = doc.data() as Omit<InventoryItem, "id"> & {
         isActive: boolean;
         createdAt: Timestamp;
         updatedAt: Timestamp;
@@ -27,7 +27,7 @@ export const InventoryRepository = {
 
     if (!doc.exists) return null;
 
-    const data = doc.data() as InventoryItemInput & {
+    const data = doc.data() as Omit<InventoryItem, "id"> & {
       isActive: boolean;
       createdAt: Timestamp;
       updatedAt: Timestamp;
@@ -39,7 +39,9 @@ export const InventoryRepository = {
     };
   },
 
-  async create(data: InventoryItemInput): Promise<InventoryItem> {
+  async create(
+    data: Omit<InventoryItem, "id" | "createdAt" | "updatedAt">
+  ): Promise<InventoryItem> {
     const now = Timestamp.now();
 
     const docRef = await collection.add({
@@ -53,7 +55,7 @@ export const InventoryRepository = {
 
     return {
       id: newDoc.id,
-      ...(newDoc.data() as InventoryItemInput & {
+      ...(newDoc.data() as Omit<InventoryItem, "id"> & {
         isActive: boolean;
         createdAt: Timestamp;
         updatedAt: Timestamp;
@@ -79,7 +81,7 @@ export const InventoryRepository = {
 
     return {
       id: updatedDoc.id,
-      ...(updatedDoc.data() as InventoryItemInput & {
+      ...(updatedDoc.data() as Omit<InventoryItem, "id"> & {
         isActive: boolean;
         createdAt: Timestamp;
         updatedAt: Timestamp;
