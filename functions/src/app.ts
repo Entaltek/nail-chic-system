@@ -6,7 +6,7 @@ import inventoryMovementRoutes from "./modules/movement/InventoryMovement.routes
 import clientRoutes from "./modules/clients/clients.routes";
 
 export const app = express();
-
+app.set("json spaces", 2);
 app.use(express.json());
 
 app.get("/", (req, res) => {
@@ -19,6 +19,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/categories", categoryRoutes);
+app.use("/inventory", inventoryRoutes);
 app.use("/inventoryItems", inventoryRoutes);
 app.use("/inventory-movements", inventoryMovementRoutes);
 app.use("/clients", clientRoutes);

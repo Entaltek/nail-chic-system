@@ -6,11 +6,7 @@ export const InventoryController = {
 
   async getAll(req: Request, res: Response) {
     try {
-      // Mock de inventario
-      const inventoryItems = [
-        { id: "1", name: "Guantes Nitrilo", stock: 100, isActive: true },
-        { id: "2", name: "Mascarilla", stock: 50, isActive: true },
-      ];
+      const inventoryItems = await InventoryService.getAll();
 
       return res.status(200).json({
         status: 1,
