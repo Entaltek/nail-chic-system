@@ -1,15 +1,15 @@
-import { CategoryRepository } from './category.repository';
-import { InventoryCategory } from './category.model';
+import { CategoryRepository } from "./category.repository";
+import type { InventoryCategory } from "./category.model";
 
-export const CategoryService = {
-  async getAll() {
+export const categoryService = {
+  async getAll(): Promise<InventoryCategory[]> {
     return CategoryRepository.findAll();
   },
 
-  async create(category: Omit<InventoryCategory, 'id'>) {
+  async create(category: Omit<InventoryCategory, "id">) {
     // regla de negocio ejemplo
     if (!category.name || !category.superCategory) {
-      throw new Error('Categoría inválida');
+      throw new Error("Categoría inválida");
     }
 
     return CategoryRepository.create(category);
