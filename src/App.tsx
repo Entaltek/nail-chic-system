@@ -25,8 +25,18 @@ import ProtectedLayout from "@/auth/ProtectedLayout";
 
 const queryClient = new QueryClient();
 
+const EnvironmentBanner = () => {
+  if (import.meta.env.VITE_ENV !== "development") return null;
+  return (
+    <div className="w-full bg-yellow-500 text-yellow-950 font-bold text-xs py-1 text-center fixed top-0 z-50">
+      Entorno: DEV
+    </div>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
+    <EnvironmentBanner />
     <TooltipProvider>
       <Toaster />
       <Sonner />

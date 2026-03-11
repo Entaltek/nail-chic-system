@@ -12,6 +12,8 @@ export const app = express();
  */
 const allowlist = new Set([
   "https://athleek-sys.web.app",
+  "https://entaltek-manicura.web.app",
+  "https://entaltek-manicura.firebaseapp.com",
   "http://localhost:8080",
   "http://127.0.0.1:8080",
   "http://localhost:8081",

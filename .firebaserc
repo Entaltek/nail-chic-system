@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "athleek-sys"
+    "default": "athleek-sys",
+    "prod": "athleek-sys",
+    "dev": "entaltek-manicura"
   }
 }

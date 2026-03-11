@@ -4,9 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "build:dev": "vite build --mode development",
+    "dev": "vite --mode development",
+    "build": "tsc && vite build --mode production",
+    "build:dev": "tsc && vite build --mode development",
+    "deploy:dev": "npm run build:dev && firebase use dev && firebase deploy",
+    "deploy:prod": "npm run build && firebase use prod && firebase deploy",
+    "deploy:preview": "npm run build:dev && firebase hosting:channel:deploy preview-$(date +%s)",
     "lint": "eslint .",
     "preview": "vite preview"
   },

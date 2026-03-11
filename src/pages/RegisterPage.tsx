@@ -128,6 +128,9 @@ export default function RegisterPage() {
       // 1) Crear usuario en Firebase Auth
       const cred = await createUserWithEmailAndPassword(auth, data.correo, data.password);
 
+      // Esperar a que el token esté disponible
+      await cred.user.getIdToken();
+
       // 2) Crear documento del usuario en Firestore (users/{uid})
       await setDoc(doc(db, "users", cred.user.uid), {
         email: data.correo,

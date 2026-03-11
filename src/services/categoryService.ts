@@ -1,6 +1,7 @@
 import type { InventoryCategory, SuperCategoryType } from "@/stores/businessConfig";
 
-const CATEGORIES_URL = "https://api-587148598592.us-central1.run.app/categories";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const CATEGORIES_URL = `${BASE_URL}/categories`;
 
 type CategoryDTO = {
   id: string;

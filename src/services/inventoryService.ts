@@ -1,7 +1,7 @@
-const API_URL = import.meta.env.VITE_API_URL;
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export const getInventory = async () => {
-  const res = await fetch(`${API_URL}/inventory-items`);
+  const res = await fetch(`${BASE_URL}/inventory-items`);
 
   if (!res.ok) {
     const text = await res.text();
@@ -18,7 +18,7 @@ export const createMovement = async (data: {
   quantity: number;
   reason?: string;
 }) => {
-  const res = await fetch(`${API_URL}/inventory-movements`, {
+  const res = await fetch(`${BASE_URL}/inventory-movements`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),

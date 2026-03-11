@@ -1,73 +1,38 @@
-# Welcome to your Lovable project
+# Nail Chic System
 
-## Project info
+## 🚀 Setup inicial
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+### Requisitos
+- Node.js 20+ (recomendado usar nvm)
+- Firebase CLI: `npm install -g firebase-tools`
 
-## How can I edit this code?
+### Instalación
+```bash
+# 1. Clonar el repo
+git clone 
+cd nail-chic-system
 
-There are several ways of editing your application.
+# 2. Instalar dependencias del frontend
+npm install
 
-**Use Lovable**
+# 3. Instalar dependencias del backend
+cd functions && npm install && cd ..
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+# 4. Configurar variables de entorno
+cp .env.example .env.development
+# Pedir las credenciales de DEV al líder del proyecto y llenar .env.development
 
-Changes made via Lovable will be committed automatically to this repo.
+# 5. Autenticarse en Firebase
+firebase login
+firebase use dev
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# 6. Correr el proyecto localmente
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+### Comandos disponibles
+| Comando | Descripción |
+|---|---|
+| `npm run dev` | Frontend local en localhost:5173 |
+| `npm run deploy:dev` | Deploy a entorno DEV |
+| `npm run deploy:prod` | Deploy a entorno PROD (solo líder) |
