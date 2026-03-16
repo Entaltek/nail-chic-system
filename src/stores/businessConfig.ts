@@ -477,6 +477,24 @@ export const useBusinessConfig = create<BusinessConfigState>()(
       teamMembers: defaultTeamMembers,
       commissionBase: 'gross',
       
+      superCategories: [
+        { id: 'CONSUMIBLES_BASICOS', name: 'Consumibles Básicos', description: 'Stock exacto por pieza (Limas, Guantes, Tips)', color: 'bg-blue-500', emoji: '🔵' },
+        { id: 'QUIMICOS_GELES', name: 'Químicos y Geles', description: 'Calculadora de gota - costo por ml/gr (Monómero, Gel)', color: 'bg-purple-500', emoji: '🟣' },
+        { id: 'DECORACION_CONTABLE', name: 'Decoración Contable', description: 'Stock exacto por pieza (Charms, Cristales Grandes)', color: 'bg-pink-500', emoji: '✨' },
+        { id: 'DECORACION_GRANEL', name: 'Decoración a Granel', description: 'Estado visual: Lleno/Medio/Bajo (Glitter, Efectos)', color: 'bg-rose-400', emoji: '🎨' },
+        { id: 'EQUIPO_HERRAMIENTAS', name: 'Equipo y Herramientas', description: 'Depreciación mensual (Drill, Lámpara, Pinceles)', color: 'bg-amber-500', emoji: '🛠' },
+      ],
+      setSuperCategories: (superCategories) => set({ superCategories }),
+      addSuperCategory: (superCategory) => set((state) => ({
+        superCategories: [...state.superCategories, { ...superCategory, id: Date.now().toString() }],
+      })),
+      updateSuperCategory: (id, superCategory) => set((state) => ({
+        superCategories: state.superCategories.map((sc) => sc.id === id ? { ...sc, ...superCategory } : sc),
+      })),
+      removeSuperCategory: (id) => set((state) => ({
+        superCategories: state.superCategories.filter((sc) => sc.id !== id),
+      })),
+
       inventoryCategories: [],
       setInventoryCategories: (categories) => set({ inventoryCategories: categories }),
       extras: defaultExtras,
