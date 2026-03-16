@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from "react";
-import type { ReactNode } from "react";
 
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -33,102 +32,36 @@ import {
   Plus,
   Pencil,
   Trash2,
-  Box,
-  Droplet,
-  Clock,
-  Sparkles,
-  Eye,
   Search,
   ChevronRight,
   Package,
+  Layers,
 } from "lucide-react";
 
 import {
   useBusinessConfig,
-  InventoryCategory,
-  SuperCategoryType,
-  fetchCategories,
+  type InventoryCategory,
+  type SuperCategory,
 } from "@/stores/businessConfig";
 import { toast } from "@/hooks/use-toast";
 import { categoryService } from "@/services/categoryService";
-
-
-const superCategoryInfo: Record<
-  SuperCategoryType,
-  { label: string; description: string; icon: ReactNode; color: string; emoji: string }
-> = {
-  CONSUMIBLES_BASICOS: {
-    label: "Consumibles Básicos",
-    description: "Stock exacto por pieza (Limas, Guantes, Tips)",
-    icon: <Box className="h-4 w-4" />,
-    color: "bg-blue-500",
-    emoji: "🔵",
-  },
-  QUIMICOS_GELES: {
-    label: "Químicos y Geles",
-    description: "Calculadora de gota - costo por ml/gr (Monómero, Gel)",
-    icon: <Droplet className="h-4 w-4" />,
-    color: "bg-purple-500",
-    emoji: "🟣",
-  },
-  DECORACION_CONTABLE: {
-    label: "Decoración Contable",
-    description: "Stock exacto por pieza (Charms, Cristales Grandes)",
-    icon: <Sparkles className="h-4 w-4" />,
-    color: "bg-pink-500",
-    emoji: "✨",
-  },
-  DECORACION_GRANEL: {
-    label: "Decoración a Granel",
-    description: "Estado visual: Lleno/Medio/Bajo (Glitter, Efectos)",
-    icon: <Eye className="h-4 w-4" />,
-    color: "bg-rose-400",
-    emoji: "🎨",
-  },
-  EQUIPO_HERRAMIENTAS: {
-    label: "Equipo y Herramientas",
-    description: "Depreciación mensual (Drill, Lámpara, Pinceles)",
-    icon: <Clock className="h-4 w-4" />,
-    color: "bg-amber-500",
-    emoji: "🛠",
-  },
-};
+import { SuperCategoryFormDialog } from "@/components/categorias/SuperCategoryFormDialog";
 
 const colorOptions = [
   { value: "bg-blue-500", label: "Azul" },
   { value: "bg-blue-400", label: "Azul Claro" },
-  { value: "bg-blue-300", label: "Azul Suave" },
   { value: "bg-purple-500", label: "Púrpura" },
   { value: "bg-purple-400", label: "Púrpura Claro" },
-  { value: "bg-purple-300", label: "Púrpura Suave" },
   { value: "bg-pink-500", label: "Rosa" },
   { value: "bg-rose-400", label: "Rosa Intenso" },
-  { value: "bg-rose-300", label: "Rosa Suave" },
   { value: "bg-amber-500", label: "Ámbar" },
-  { value: "bg-amber-400", label: "Ámbar Claro" },
   { value: "bg-teal-500", label: "Verde Azulado" },
   { value: "bg-emerald-500", label: "Esmeralda" },
 ];
 
 const iconOptions = [
-  "🧤",
-  "💅",
-  "✨",
-  "🦶",
-  "🔧",
-  "💎",
-  "🎨",
-  "💄",
-  "🧴",
-  "✂️",
-  "🪥",
-  "💫",
-  "📏",
-  "🧪",
-  "💧",
-  "🎀",
-  "🌟",
-  "🔌",
+  "🧤", "💅", "✨", "🦶", "🔧", "💎", "🎨", "💄",
+  "🧴", "✂️", "🪥", "💫", "📏", "🧪", "💧", "🎀", "🌟", "🔌",
 ];
 
 const TOP_ITEMS_LIMIT = 5;
@@ -140,6 +73,10 @@ export default function GestionCategorias() {
     addInventoryCategory,
     updateInventoryCategory,
     removeInventoryCategory,
+    superCategories,
+    addSuperCategory,
+    updateSuperCategory,
+    removeSuperCategory,
     inventory,
   } = useBusinessConfig();
 
@@ -157,57 +94,48 @@ export default function GestionCategorias() {
       });
   }, [setInventoryCategories]);
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<InventoryCategory | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedSuperCategories, setSelectedSuperCategories] = useState<Set<SuperCategoryType>>(
-    new Set()
-  );
+  const [selectedSuperCategories, setSelectedSuperCategories] = useState<Set<string>>(new Set());
+
+  // Super category form
+  const [isSuperCatDialogOpen, setIsSuperCatDialogOpen] = useState(false);
+  const [editingSuperCat, setEditingSuperCat] = useState<SuperCategory | null>(null);
 
   // Expanded super category modal
-  const [expandedSuperCategory, setExpandedSuperCategory] = useState<SuperCategoryType | null>(
-    null
-  );
+  const [expandedSuperCategory, setExpandedSuperCategory] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
-    superCategory: "QUIMICOS_GELES" as SuperCategoryType,
+    superCategory: superCategories[0]?.id ?? "",
     description: "",
     color: "bg-blue-500",
     icon: "📦",
   });
 
-  // ✅ FIX: item count helper (estaba faltando)
-  const getItemCount = (categoryId: string) => {
-    return inventory.filter((item: any) => item?.categoryId === categoryId).length;
-  };
+  const getItemCount = (categoryId: string) =>
+    inventory.filter((item: any) => item?.categoryId === categoryId).length;
 
-  // ✅ FIX: bandera para "Todas" + grid dinámico (estaba faltando)
   const isAllSelected = selectedSuperCategories.size === 0 && searchTerm.trim() === "";
 
-  // ✅ FIX: groupedCategories (se usa en modal y para construir filteredGroups)
   const groupedCategories = useMemo(() => {
-    const keys = Object.keys(superCategoryInfo) as SuperCategoryType[];
-    return keys.map((superCategory) => ({
-      superCategory,
-      info: superCategoryInfo[superCategory],
-      categories: inventoryCategories.filter((c) => c.superCategory === superCategory),
+    return superCategories.map((sc) => ({
+      superCategory: sc,
+      categories: inventoryCategories.filter((c) => c.superCategory === sc.id),
     }));
-  }, [inventoryCategories]);
+  }, [inventoryCategories, superCategories]);
 
-  // ✅ FIX: filteredGroups (se usa para render principal)
   const filteredGroups = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
 
     return groupedCategories.map((g) => {
       let cats = g.categories;
 
-      // filtro por supercategorías (si seleccionó una o varias)
-      if (selectedSuperCategories.size > 0 && !selectedSuperCategories.has(g.superCategory)) {
+      if (selectedSuperCategories.size > 0 && !selectedSuperCategories.has(g.superCategory.id)) {
         cats = [];
       }
 
-      // filtro por texto
       if (term) {
         cats = cats.filter((c) => {
           const name = (c.name ?? "").toLowerCase();
@@ -220,15 +148,11 @@ export default function GestionCategorias() {
     });
   }, [groupedCategories, searchTerm, selectedSuperCategories]);
 
-  // Toggle super category filter
-  const toggleSuperCategoryFilter = (superCat: SuperCategoryType) => {
+  const toggleSuperCategoryFilter = (superCatId: string) => {
     setSelectedSuperCategories((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(superCat)) {
-        newSet.delete(superCat);
-      } else {
-        newSet.add(superCat);
-      }
+      if (newSet.has(superCatId)) newSet.delete(superCatId);
+      else newSet.add(superCatId);
       return newSet;
     });
   };
@@ -241,7 +165,7 @@ export default function GestionCategorias() {
   const resetForm = () => {
     setFormData({
       name: "",
-      superCategory: "QUIMICOS_GELES",
+      superCategory: superCategories[0]?.id ?? "",
       description: "",
       color: "bg-blue-500",
       icon: "📦",
@@ -249,7 +173,7 @@ export default function GestionCategorias() {
     setEditingCategory(null);
   };
 
-  const handleOpenDialog = (category?: InventoryCategory) => {
+  const handleOpenCategoryDialog = (category?: InventoryCategory) => {
     if (category) {
       setEditingCategory(category);
       setFormData({
@@ -262,47 +186,32 @@ export default function GestionCategorias() {
     } else {
       resetForm();
     }
-    setIsDialogOpen(true);
+    setIsCategoryDialogOpen(true);
   };
 
-  const handleSave = async () => {
+  const handleSaveCategory = async () => {
     if (!formData.name.trim()) {
-      toast({
-        title: "Error",
-        description: "El nombre de la categoría es requerido",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "El nombre es requerido", variant: "destructive" });
       return;
     }
 
     try {
       if (editingCategory) {
         await updateInventoryCategory(editingCategory.id, formData);
-        toast({
-          title: "Categoría actualizada",
-          description: `${formData.name} ha sido actualizada`,
-        });
+        toast({ title: "Categoría actualizada", description: `${formData.name} actualizada` });
       } else {
         await addInventoryCategory(formData);
-        toast({
-          title: "Categoría creada",
-          description: `${formData.name} ha sido agregada`,
-        });
+        toast({ title: "Categoría creada", description: `${formData.name} agregada` });
       }
-
-      setIsDialogOpen(false);
+      setIsCategoryDialogOpen(false);
       resetForm();
     } catch (e) {
       console.error(e);
-      toast({
-        title: "Error",
-        description: "No se pudo guardar la categoría",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "No se pudo guardar", variant: "destructive" });
     }
   };
 
-  const handleDelete = async (category: InventoryCategory) => {
+  const handleDeleteCategory = async (category: InventoryCategory) => {
     const itemsInCategory = inventory.filter((item: any) => item?.categoryId === category.id);
     if (itemsInCategory.length > 0) {
       toast({
@@ -315,69 +224,64 @@ export default function GestionCategorias() {
 
     try {
       await removeInventoryCategory(category.id);
-      toast({
-        title: "Categoría eliminada",
-        description: `${category.name} ha sido eliminada`,
-      });
+      toast({ title: "Categoría eliminada", description: `${category.name} eliminada` });
     } catch (e) {
       console.error(e);
-      toast({
-        title: "Error",
-        description: "No se pudo eliminar la categoría",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "No se pudo eliminar", variant: "destructive" });
     }
   };
 
-  // Render category row
+  const handleSaveSuperCategory = (data: Omit<SuperCategory, "id">) => {
+    if (editingSuperCat) {
+      updateSuperCategory(editingSuperCat.id, data);
+      toast({ title: "Super categoría actualizada", description: `${data.name} actualizada` });
+    } else {
+      addSuperCategory(data);
+      toast({ title: "Super categoría creada", description: `${data.name} agregada` });
+    }
+    setEditingSuperCat(null);
+  };
+
+  const handleDeleteSuperCategory = (sc: SuperCategory) => {
+    const hasCategories = inventoryCategories.some((c) => c.superCategory === sc.id);
+    if (hasCategories) {
+      toast({
+        title: "No se puede eliminar",
+        description: "Tiene categorías asociadas. Muévelas o elimínalas primero.",
+        variant: "destructive",
+      });
+      return;
+    }
+    removeSuperCategory(sc.id);
+    toast({ title: "Super categoría eliminada", description: `${sc.name} eliminada` });
+  };
+
   const renderCategoryRow = (category: InventoryCategory, showActions = true) => {
     const itemCount = getItemCount(category.id);
-
     return (
       <div
         key={category.id}
         className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 group"
       >
         <div className={`w-6 h-6 rounded ${category.color} flex items-center justify-center text-xs`}>
-          {typeof category.icon === "string" ? category.icon : (category.icon as any)?.emoji ?? "📦"}
+          {typeof category.icon === "string" ? category.icon : "📦"}
         </div>
-
         <div className="flex-1 min-w-0">
           <span className="font-medium text-sm truncate block">{category.name}</span>
           {category.description && (
             <span className="text-xs text-muted-foreground truncate block">{category.description}</span>
           )}
         </div>
-
         <Badge variant="secondary" className="text-xs gap-1">
           <Package className="h-3 w-3" />
           {itemCount}
         </Badge>
-
         {showActions && (
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleOpenDialog(category);
-              }}
-            >
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); handleOpenCategoryDialog(category); }}>
               <Pencil className="h-3 w-3" />
             </Button>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-destructive"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete(category);
-              }}
-              disabled={itemCount > 0}
-            >
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteCategory(category); }} disabled={itemCount > 0}>
               <Trash2 className="h-3 w-3" />
             </Button>
           </div>
@@ -401,126 +305,116 @@ export default function GestionCategorias() {
             </p>
           </div>
 
-          <Dialog
-            open={isDialogOpen}
-            onOpenChange={(open) => {
-              setIsDialogOpen(open);
-              if (!open) resetForm();
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button onClick={() => handleOpenDialog()}>
-                <Plus className="mr-2 h-4 w-4" />
-                Nueva Categoría
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => { setEditingSuperCat(null); setIsSuperCatDialogOpen(true); }}
+            >
+              <Layers className="mr-2 h-4 w-4" />
+              Nueva Super Categoría
+            </Button>
 
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>{editingCategory ? "Editar Categoría" : "Nueva Categoría"}</DialogTitle>
-              </DialogHeader>
+            <Dialog
+              open={isCategoryDialogOpen}
+              onOpenChange={(open) => { setIsCategoryDialogOpen(open); if (!open) resetForm(); }}
+            >
+              <DialogTrigger asChild>
+                <Button onClick={() => handleOpenCategoryDialog()}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nueva Categoría
+                </Button>
+              </DialogTrigger>
 
-              <div className="space-y-4 mt-4">
-                <div className="grid grid-cols-4 gap-4">
-                  <div className="col-span-3">
-                    <Label>Nombre de la Categoría</Label>
-                    <Input
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="Ej. Químicos Acrílico"
-                    />
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>{editingCategory ? "Editar Categoría" : "Nueva Categoría"}</DialogTitle>
+                </DialogHeader>
+
+                <div className="space-y-4 mt-4">
+                  <div className="grid grid-cols-4 gap-4">
+                    <div className="col-span-3">
+                      <Label>Nombre de la Categoría</Label>
+                      <Input
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="Ej. Químicos Acrílico"
+                      />
+                    </div>
+                    <div>
+                      <Label>Icono</Label>
+                      <Select value={formData.icon} onValueChange={(v) => setFormData({ ...formData, icon: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {iconOptions.map((icon) => (
+                            <SelectItem key={icon} value={icon}><span className="text-xl">{icon}</span></SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                   <div>
-                    <Label>Icono</Label>
+                    <Label>Super Categoría</Label>
                     <Select
-                      value={formData.icon}
-                      onValueChange={(v) => setFormData({ ...formData, icon: v })}
+                      value={formData.superCategory}
+                      onValueChange={(v) => setFormData({ ...formData, superCategory: v })}
                     >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {iconOptions.map((icon) => (
-                          <SelectItem key={icon} value={icon}>
-                            <span className="text-xl">{icon}</span>
+                        {superCategories.map((sc) => (
+                          <SelectItem key={sc.id} value={sc.id}>
+                            <div className="flex items-center gap-2">
+                              <span>{sc.emoji}</span>
+                              <span>{sc.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {formData.superCategory && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {superCategories.find((sc) => sc.id === formData.superCategory)?.description}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label>Color de Etiqueta</Label>
+                    <Select value={formData.color} onValueChange={(v) => setFormData({ ...formData, color: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {colorOptions.map((color) => (
+                          <SelectItem key={color.value} value={color.value}>
+                            <div className="flex items-center gap-2">
+                              <div className={`w-4 h-4 rounded-full ${color.value}`} />
+                              <span>{color.label}</span>
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
+
+                  <div>
+                    <Label>Descripción</Label>
+                    <Input
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="Breve descripción de qué productos incluye"
+                    />
+                  </div>
+
+                  <Button onClick={handleSaveCategory} className="w-full">
+                    {editingCategory ? "Guardar Cambios" : "Crear Categoría"}
+                  </Button>
                 </div>
-
-                <div>
-                  <Label>Super Categoría (Lógica de Cálculo)</Label>
-                  <Select
-                    value={formData.superCategory}
-                    onValueChange={(v) =>
-                      setFormData({ ...formData, superCategory: v as SuperCategoryType })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(superCategoryInfo).map(([key, info]) => (
-                        <SelectItem key={key} value={key}>
-                          <div className="flex items-center gap-2">
-                            <span>{info.emoji}</span>
-                            <span>{info.label}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {superCategoryInfo[formData.superCategory].description}
-                  </p>
-                </div>
-
-                <div>
-                  <Label>Color de Etiqueta</Label>
-                  <Select
-                    value={formData.color}
-                    onValueChange={(v) => setFormData({ ...formData, color: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {colorOptions.map((color) => (
-                        <SelectItem key={color.value} value={color.value}>
-                          <div className="flex items-center gap-2">
-                            <div className={`w-4 h-4 rounded-full ${color.value}`} />
-                            <span>{color.label}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>Descripción</Label>
-                  <Input
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Breve descripción de qué productos incluye"
-                  />
-                </div>
-
-                <Button onClick={handleSave} className="w-full">
-                  {editingCategory ? "Guardar Cambios" : "Crear Categoría"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Search and Filters */}
         <div className="space-y-3">
-          {/* Search Input */}
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -531,7 +425,6 @@ export default function GestionCategorias() {
             />
           </div>
 
-          {/* Super Category Filter Badges */}
           <div className="flex flex-wrap gap-2">
             <Badge
               variant={isAllSelected ? "default" : "outline"}
@@ -541,20 +434,18 @@ export default function GestionCategorias() {
               Todas
             </Badge>
 
-            {Object.entries(superCategoryInfo).map(([key, info]) => {
-              const superCat = key as SuperCategoryType;
-              const isSelected = selectedSuperCategories.has(superCat);
-              const count = inventoryCategories.filter((c) => c.superCategory === superCat).length;
-
+            {superCategories.map((sc) => {
+              const isSelected = selectedSuperCategories.has(sc.id);
+              const count = inventoryCategories.filter((c) => c.superCategory === sc.id).length;
               return (
                 <Badge
-                  key={key}
+                  key={sc.id}
                   variant={isSelected ? "default" : "outline"}
                   className="py-1.5 px-3 cursor-pointer hover:bg-primary/90 transition-colors gap-1"
-                  onClick={() => toggleSuperCategoryFilter(superCat)}
+                  onClick={() => toggleSuperCategoryFilter(sc.id)}
                 >
-                  <span>{info.emoji}</span>
-                  <span>{info.label}</span>
+                  <span>{sc.emoji}</span>
+                  <span>{sc.name}</span>
                   <span className="ml-1 opacity-70">({count})</span>
                 </Badge>
               );
@@ -562,129 +453,194 @@ export default function GestionCategorias() {
           </div>
         </div>
 
-        {/* EMPTY STATE GLOBAL */}
-        {inventoryCategories.length === 0 && (
+        {/* Super Categories Grid */}
+        <div
+          className={`grid gap-4 ${
+            isAllSelected ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1 md:grid-cols-2"
+          }`}
+        >
+          {filteredGroups.every((g) => g.categories.length === 0) &&
+            superCategories.length > 0 &&
+            searchTerm.trim() === "" &&
+            selectedSuperCategories.size === 0 ? (
+            // Show all super categories with empty states
+            superCategories.map((sc) => {
+              const cats = inventoryCategories.filter((c) => c.superCategory === sc.id);
+              return (
+                <Card key={sc.id} className="overflow-hidden">
+                  <CardHeader className="py-2.5 px-3 bg-muted/30">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">{sc.emoji}</span>
+                      <CardTitle className="text-sm flex-1">{sc.name}</CardTitle>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditingSuperCat(sc); setIsSuperCatDialogOpen(true); }}>
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteSuperCategory(sc)} disabled={cats.length > 0}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    <CardDescription className="text-xs">{sc.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-4">
+                    {cats.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-6 text-center">
+                        <FolderOpen className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                        <p className="text-xs text-muted-foreground">Sin categorías aún</p>
+                        <Button variant="ghost" size="sm" className="mt-2 text-xs" onClick={() => {
+                          setFormData((prev) => ({ ...prev, superCategory: sc.id }));
+                          setIsCategoryDialogOpen(true);
+                        }}>
+                          <Plus className="mr-1 h-3 w-3" />
+                          Agregar
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">{cats.map((cat) => renderCategoryRow(cat))}</div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })
+          ) : (
+            <>
+              {filteredGroups.every((g) => g.categories.length === 0) && (
+                <Card className="col-span-full border-dashed bg-muted/20 min-h-[180px]">
+                  <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+                    <Search className="h-10 w-10 text-muted-foreground mb-3" />
+                    <h3 className="font-semibold">No se encontraron categorías</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Prueba limpiar los filtros o cambiar el término de búsqueda.
+                    </p>
+                    <Button variant="outline" className="mt-3" onClick={clearFilters}>
+                      Limpiar filtros
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {filteredGroups.map(({ superCategory: sc, categories }) => {
+                if (categories.length === 0 && (searchTerm.trim() || selectedSuperCategories.size > 0)) return null;
+
+                const allCatsForSc = inventoryCategories.filter((c) => c.superCategory === sc.id);
+                const catsToShow = categories.length > 0 ? categories : allCatsForSc;
+                const topCategories = catsToShow.slice(0, TOP_ITEMS_LIMIT);
+                const remainingCount = Math.max(0, catsToShow.length - TOP_ITEMS_LIMIT);
+                const totalProducts = catsToShow.reduce((sum, c) => sum + getItemCount(c.id), 0);
+
+                return (
+                  <Card
+                    key={sc.id}
+                    className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                    onClick={() => catsToShow.length > TOP_ITEMS_LIMIT && setExpandedSuperCategory(sc.id)}
+                  >
+                    <CardHeader className="py-2.5 px-3 bg-muted/30">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">{sc.emoji}</span>
+                        <CardTitle className="text-sm flex-1">{sc.name}</CardTitle>
+                        <div className="flex items-center gap-1">
+                          <Badge variant="secondary" className="text-xs">{catsToShow.length}</Badge>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); setEditingSuperCat(sc); setIsSuperCatDialogOpen(true); }}>
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteSuperCategory(sc); }} disabled={allCatsForSc.length > 0}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                          {catsToShow.length > TOP_ITEMS_LIMIT && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                        </div>
+                      </div>
+                      <CardDescription className="text-xs">{totalProducts} productos totales</CardDescription>
+                    </CardHeader>
+
+                    <CardContent className="p-2">
+                      {catsToShow.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-6 text-center">
+                          <FolderOpen className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                          <p className="text-xs text-muted-foreground">Sin categorías aún</p>
+                          <Button variant="ghost" size="sm" className="mt-2 text-xs" onClick={(e) => {
+                            e.stopPropagation();
+                            setFormData((prev) => ({ ...prev, superCategory: sc.id }));
+                            setIsCategoryDialogOpen(true);
+                          }}>
+                            <Plus className="mr-1 h-3 w-3" />
+                            Agregar
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="space-y-1">{topCategories.map((cat) => renderCategoryRow(cat))}</div>
+                          {remainingCount > 0 && (
+                            <Button
+                              variant="ghost"
+                              className="w-full mt-2 text-xs h-8 text-muted-foreground hover:text-foreground"
+                              onClick={(e) => { e.stopPropagation(); setExpandedSuperCategory(sc.id); }}
+                            >
+                              Ver {remainingCount} categorías más
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </>
+          )}
+        </div>
+
+        {/* No super categories at all */}
+        {superCategories.length === 0 && (
           <Card className="border-dashed border-2 bg-muted/20 mt-4">
             <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-              <FolderOpen className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold">Aún no tienes categorías</h3>
+              <Layers className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold">Aún no tienes super categorías</h3>
               <p className="text-sm text-muted-foreground max-w-sm mt-1">
-                Las categorías te permiten organizar cómo se calcula el consumo, desgaste o depreciación de tus
-                productos.
+                Crea super categorías para organizar tus categorías de inventario.
               </p>
-
-              <Button className="mt-4" onClick={() => handleOpenDialog()}>
+              <Button className="mt-4" onClick={() => { setEditingSuperCat(null); setIsSuperCatDialogOpen(true); }}>
                 <Plus className="mr-2 h-4 w-4" />
-                Crear primera categoría
+                Crear primera super categoría
               </Button>
             </CardContent>
           </Card>
         )}
 
-        {/* Categories by Super Category - Dynamic columns with Top 5 */}
-        {inventoryCategories.length > 0 && (
-          <div
-            className={`grid gap-4 ${
-              isAllSelected ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1 md:grid-cols-2"
-            }`}
-          >
-            {filteredGroups.every((g) => g.categories.length === 0) && (
-              <Card className="col-span-full border-dashed bg-muted/20 min-h-[180px]">
-                <CardContent className="flex flex-col items-center justify-center py-10 text-center">
-                  <Search className="h-10 w-10 text-muted-foreground mb-3" />
-                  <h3 className="font-semibold">No se encontraron categorías</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Prueba limpiar los filtros o cambiar el término de búsqueda.
-                  </p>
-
-                  <Button variant="outline" className="mt-3" onClick={clearFilters}>
-                    Limpiar filtros
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-
-            {filteredGroups.map(({ superCategory, info, categories }) => {
-              if (categories.length === 0) return null;
-
-              const topCategories = categories.slice(0, TOP_ITEMS_LIMIT);
-              const remainingCount = Math.max(0, categories.length - TOP_ITEMS_LIMIT);
-              const totalProducts = categories.reduce((sum, c) => sum + getItemCount(c.id), 0);
-
-              return (
-                <Card
-                  key={superCategory}
-                  className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
-                  onClick={() => categories.length > TOP_ITEMS_LIMIT && setExpandedSuperCategory(superCategory)}
-                >
-                  <CardHeader className="py-2.5 px-3 bg-muted/30">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">{info.emoji}</span>
-                      <CardTitle className="text-sm flex-1">{info.label}</CardTitle>
-                      <Badge variant="secondary" className="text-xs">
-                        {categories.length}
-                      </Badge>
-                      {categories.length > TOP_ITEMS_LIMIT && (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </div>
-                    <CardDescription className="text-xs">{totalProducts} productos totales</CardDescription>
-                  </CardHeader>
-
-                  <CardContent className="p-2">
-                    <div className="space-y-1">{topCategories.map((category) => renderCategoryRow(category))}</div>
-
-                    {remainingCount > 0 && (
-                      <Button
-                        variant="ghost"
-                        className="w-full mt-2 text-xs h-8 text-muted-foreground hover:text-foreground"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setExpandedSuperCategory(superCategory);
-                        }}
-                      >
-                        Ver {remainingCount} categorías más
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-
         {/* Expanded Super Category Modal */}
-        <Dialog
-          open={expandedSuperCategory !== null}
-          onOpenChange={(open) => !open && setExpandedSuperCategory(null)}
-        >
+        <Dialog open={expandedSuperCategory !== null} onOpenChange={(open) => !open && setExpandedSuperCategory(null)}>
           <DialogContent className="sm:max-w-2xl max-h-[80vh]">
-            {expandedSuperCategory && (
-              <>
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <span className="text-xl">{superCategoryInfo[expandedSuperCategory].emoji}</span>
-                    {superCategoryInfo[expandedSuperCategory].label}
-                    <Badge variant="secondary" className="ml-2">
-                      {groupedCategories.find((g) => g.superCategory === expandedSuperCategory)?.categories.length ||
-                        0}{" "}
-                      categorías
-                    </Badge>
-                  </DialogTitle>
-                  <CardDescription>{superCategoryInfo[expandedSuperCategory].description}</CardDescription>
-                </DialogHeader>
-
-                <ScrollArea className="max-h-[60vh] pr-4">
-                  <div className="space-y-1.5">
-                    {groupedCategories
-                      .find((g) => g.superCategory === expandedSuperCategory)
-                      ?.categories.map((category) => renderCategoryRow(category))}
-                  </div>
-                </ScrollArea>
-              </>
-            )}
+            {expandedSuperCategory && (() => {
+              const sc = superCategories.find((s) => s.id === expandedSuperCategory);
+              const cats = inventoryCategories.filter((c) => c.superCategory === expandedSuperCategory);
+              if (!sc) return null;
+              return (
+                <>
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <span className="text-xl">{sc.emoji}</span>
+                      {sc.name}
+                      <Badge variant="secondary" className="ml-2">{cats.length} categorías</Badge>
+                    </DialogTitle>
+                    <CardDescription>{sc.description}</CardDescription>
+                  </DialogHeader>
+                  <ScrollArea className="max-h-[60vh] pr-4">
+                    <div className="space-y-1.5">
+                      {cats.map((category) => renderCategoryRow(category))}
+                    </div>
+                  </ScrollArea>
+                </>
+              );
+            })()}
           </DialogContent>
         </Dialog>
+
+        {/* Super Category Form Dialog */}
+        <SuperCategoryFormDialog
+          open={isSuperCatDialogOpen}
+          onOpenChange={setIsSuperCatDialogOpen}
+          editing={editingSuperCat}
+          onSave={handleSaveSuperCategory}
+        />
       </div>
     </MainLayout>
   );

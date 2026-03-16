@@ -1,28 +1,21 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { auth, db } from "@/config/firebaseConfig";
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  query,
-  serverTimestamp,
-  updateDoc,
-  where,
-} from "firebase/firestore";
+import { categoryService } from "@/services/categoryService";
 
 // Super Category Types - determines calculation logic
-export type SuperCategoryType = 
-  | 'CONSUMIBLES_BASICOS'    // Por Pieza - stock exacto (Int)
-  | 'QUIMICOS_GELES'         // Por Vol/Peso - calculadora de gota
-  | 'DECORACION_CONTABLE'    // Por Pieza - stock exacto
-  | 'DECORACION_GRANEL'      // Estado Visual - Lleno/Medio/Bajo
-  | 'EQUIPO_HERRAMIENTAS';   // Activos - depreciación mensual
+export type SuperCategoryType = string;
 
 // Visual stock status for DECORACION_GRANEL
 export type VisualStockStatus = 'lleno' | 'medio' | 'bajo';
+
+// Dynamic super category definition
+export interface SuperCategory {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  emoji: string;
+}
 
 // Inventory category with wear logic
 export interface InventoryCategory {
@@ -214,6 +207,13 @@ interface BusinessConfigState {
   teamMembers: TeamMember[];
   commissionBase: 'gross' | 'net';
   
+  // Super Categories (dynamic)
+  superCategories: SuperCategory[];
+  setSuperCategories: (superCategories: SuperCategory[]) => void;
+  addSuperCategory: (superCategory: Omit<SuperCategory, 'id'>) => void;
+  updateSuperCategory: (id: string, superCategory: Partial<SuperCategory>) => void;
+  removeSuperCategory: (id: string) => void;
+  
   // Inventory Categories
   inventoryCategories: InventoryCategory[];
   setInventoryCategories: (categories: InventoryCategory[]) => void;
@@ -298,19 +298,7 @@ interface BusinessConfigState {
 }
 
 export async function fetchCategories(): Promise<InventoryCategory[]> {
-  const uid = requireUid();
-
-  const q = query(
-    collection(db, CATEGORIES_COL),
-    where("userId", "==", uid)
-  );
-
-  const snap = await getDocs(q);
-
-  return snap.docs.map((d) => {
-    const data = d.data() as Omit<InventoryCategory, "id">;
-    return { id: d.id, ...data };
-  });
+  return categoryService.getAll();
 }
 
 // Default extras (Nail Art pricing) - now with types
@@ -489,6 +477,24 @@ export const useBusinessConfig = create<BusinessConfigState>()(
       teamMembers: defaultTeamMembers,
       commissionBase: 'gross',
       
+      superCategories: [
+        { id: 'CONSUMIBLES_BASICOS', name: 'Consumibles Básicos', description: 'Stock exacto por pieza (Limas, Guantes, Tips)', color: 'bg-blue-500', emoji: '🔵' },
+        { id: 'QUIMICOS_GELES', name: 'Químicos y Geles', description: 'Calculadora de gota - costo por ml/gr (Monómero, Gel)', color: 'bg-purple-500', emoji: '🟣' },
+        { id: 'DECORACION_CONTABLE', name: 'Decoración Contable', description: 'Stock exacto por pieza (Charms, Cristales Grandes)', color: 'bg-pink-500', emoji: '✨' },
+        { id: 'DECORACION_GRANEL', name: 'Decoración a Granel', description: 'Estado visual: Lleno/Medio/Bajo (Glitter, Efectos)', color: 'bg-rose-400', emoji: '🎨' },
+        { id: 'EQUIPO_HERRAMIENTAS', name: 'Equipo y Herramientas', description: 'Depreciación mensual (Drill, Lámpara, Pinceles)', color: 'bg-amber-500', emoji: '🛠' },
+      ],
+      setSuperCategories: (superCategories) => set({ superCategories }),
+      addSuperCategory: (superCategory) => set((state) => ({
+        superCategories: [...state.superCategories, { ...superCategory, id: Date.now().toString() }],
+      })),
+      updateSuperCategory: (id, superCategory) => set((state) => ({
+        superCategories: state.superCategories.map((sc) => sc.id === id ? { ...sc, ...superCategory } : sc),
+      })),
+      removeSuperCategory: (id) => set((state) => ({
+        superCategories: state.superCategories.filter((sc) => sc.id !== id),
+      })),
+
       inventoryCategories: [],
       setInventoryCategories: (categories) => set({ inventoryCategories: categories }),
       extras: defaultExtras,
@@ -558,34 +564,20 @@ export const useBusinessConfig = create<BusinessConfigState>()(
         teamMembers: state.teamMembers.filter((m) => m.id !== id),
       })),
       
-      // Category actions (Firebase)
+      // Category actions (API)
       addInventoryCategory: async (category) => {
-        const uid = requireUid();
+        const result = await categoryService.create(category);
 
-        const ref = await addDoc(collection(db, CATEGORIES_COL), {
-          ...category,
-          userId: uid, // ✅ AQUÍ es donde se agrega
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-
-        // Actualiza estado local (optimista)
         set((state) => ({
           inventoryCategories: [
             ...state.inventoryCategories,
-            { ...category, id: ref.id, userId: uid },
+            { ...category, id: result.id },
           ],
         }));
       },
 
       updateInventoryCategory: async (id, category) => {
-        requireUid();
-
-        await updateDoc(doc(db, CATEGORIES_COL, id), {
-          ...category,
-          updatedAt: serverTimestamp(),
-        });
-
+        // TODO: add categoryService.update when API supports it
         set((state) => ({
           inventoryCategories: state.inventoryCategories.map((c) =>
             c.id === id ? { ...c, ...category } : c
@@ -594,10 +586,7 @@ export const useBusinessConfig = create<BusinessConfigState>()(
       },
 
       removeInventoryCategory: async (id) => {
-        requireUid();
-
-        await deleteDoc(doc(db, CATEGORIES_COL, id));
-
+        // TODO: add categoryService.delete when API supports it
         set((state) => ({
           inventoryCategories: state.inventoryCategories.filter((c) => c.id !== id),
         }));

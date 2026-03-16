@@ -28,8 +28,6 @@ const normalize = (dto: CategoryDTO): InventoryCategory => ({
   description: dto.description ?? "",
   color: dto.color ?? "bg-blue-500",
   icon: dto.icon ?? "📦",
-  createdAt: dto.createdAt as any,
-  updatedAt: dto.updatedAt as any,
 });
 
 function extractCategories(json: CategoriesResponse): CategoryDTO[] {
