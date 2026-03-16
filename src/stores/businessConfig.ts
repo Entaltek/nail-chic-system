@@ -539,34 +539,20 @@ export const useBusinessConfig = create<BusinessConfigState>()(
         teamMembers: state.teamMembers.filter((m) => m.id !== id),
       })),
       
-      // Category actions (Firebase)
+      // Category actions (API)
       addInventoryCategory: async (category) => {
-        const uid = requireUid();
+        const result = await categoryService.create(category);
 
-        const ref = await addDoc(collection(db, CATEGORIES_COL), {
-          ...category,
-          userId: uid, // ✅ AQUÍ es donde se agrega
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-
-        // Actualiza estado local (optimista)
         set((state) => ({
           inventoryCategories: [
             ...state.inventoryCategories,
-            { ...category, id: ref.id, userId: uid },
+            { ...category, id: result.id },
           ],
         }));
       },
 
       updateInventoryCategory: async (id, category) => {
-        requireUid();
-
-        await updateDoc(doc(db, CATEGORIES_COL, id), {
-          ...category,
-          updatedAt: serverTimestamp(),
-        });
-
+        // TODO: add categoryService.update when API supports it
         set((state) => ({
           inventoryCategories: state.inventoryCategories.map((c) =>
             c.id === id ? { ...c, ...category } : c
@@ -575,10 +561,7 @@ export const useBusinessConfig = create<BusinessConfigState>()(
       },
 
       removeInventoryCategory: async (id) => {
-        requireUid();
-
-        await deleteDoc(doc(db, CATEGORIES_COL, id));
-
+        // TODO: add categoryService.delete when API supports it
         set((state) => ({
           inventoryCategories: state.inventoryCategories.filter((c) => c.id !== id),
         }));
