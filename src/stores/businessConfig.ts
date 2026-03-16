@@ -14,15 +14,19 @@ import {
 } from "firebase/firestore";
 
 // Super Category Types - determines calculation logic
-export type SuperCategoryType = 
-  | 'CONSUMIBLES_BASICOS'    // Por Pieza - stock exacto (Int)
-  | 'QUIMICOS_GELES'         // Por Vol/Peso - calculadora de gota
-  | 'DECORACION_CONTABLE'    // Por Pieza - stock exacto
-  | 'DECORACION_GRANEL'      // Estado Visual - Lleno/Medio/Bajo
-  | 'EQUIPO_HERRAMIENTAS';   // Activos - depreciación mensual
+export type SuperCategoryType = string;
 
 // Visual stock status for DECORACION_GRANEL
 export type VisualStockStatus = 'lleno' | 'medio' | 'bajo';
+
+// Dynamic super category definition
+export interface SuperCategory {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  emoji: string;
+}
 
 // Inventory category with wear logic
 export interface InventoryCategory {
