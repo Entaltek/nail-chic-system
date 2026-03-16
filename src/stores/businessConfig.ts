@@ -302,19 +302,7 @@ interface BusinessConfigState {
 }
 
 export async function fetchCategories(): Promise<InventoryCategory[]> {
-  const uid = requireUid();
-
-  const q = query(
-    collection(db, CATEGORIES_COL),
-    where("userId", "==", uid)
-  );
-
-  const snap = await getDocs(q);
-
-  return snap.docs.map((d) => {
-    const data = d.data() as Omit<InventoryCategory, "id">;
-    return { id: d.id, ...data };
-  });
+  return categoryService.getAll();
 }
 
 // Default extras (Nail Art pricing) - now with types
