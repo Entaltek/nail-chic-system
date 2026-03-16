@@ -207,6 +207,13 @@ interface BusinessConfigState {
   teamMembers: TeamMember[];
   commissionBase: 'gross' | 'net';
   
+  // Super Categories (dynamic)
+  superCategories: SuperCategory[];
+  setSuperCategories: (superCategories: SuperCategory[]) => void;
+  addSuperCategory: (superCategory: Omit<SuperCategory, 'id'>) => void;
+  updateSuperCategory: (id: string, superCategory: Partial<SuperCategory>) => void;
+  removeSuperCategory: (id: string) => void;
+  
   // Inventory Categories
   inventoryCategories: InventoryCategory[];
   setInventoryCategories: (categories: InventoryCategory[]) => void;
