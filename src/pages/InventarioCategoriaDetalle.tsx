@@ -46,7 +46,8 @@ import {
   useBusinessConfig, 
   InventoryItem, 
   SuperCategoryType,
-  VisualStockStatus 
+  VisualStockStatus,
+  fetchCategories
 } from "@/stores/businessConfig";
 import { toast } from "@/hooks/use-toast";
 import { createMovement, getInventory, deleteInventoryItemApi } from "@/services/inventoryService";
@@ -54,13 +55,6 @@ import { ConfirmDeleteDialog } from "@/components/ui/ConfirmDeleteDialog";
 import { categoryService } from "@/services/categoryService";
 import { superCategoryService } from "@/services/superCategoryService";
 
-const superCategoryLabels: Record<SuperCategoryType, { label: string; emoji: string; description: string }> = {
-  CONSUMIBLES_BASICOS: { label: 'Consumibles Básicos', emoji: '🔵', description: 'Stock exacto por pieza' },
-  QUIMICOS_GELES: { label: 'Químicos y Geles', emoji: '🟣', description: 'Calculadora de gota' },
-  DECORACION_CONTABLE: { label: 'Decoración Contable', emoji: '✨', description: 'Piezas de alto valor' },
-  DECORACION_GRANEL: { label: 'Decoración a Granel', emoji: '🎨', description: 'Estado visual' },
-  EQUIPO_HERRAMIENTAS: { label: 'Equipo y Herramientas', emoji: '🛠', description: 'Depreciación mensual' },
-};
 
 const visualStatusOptions: { value: VisualStockStatus; label: string; color: string }[] = [
   { value: 'lleno', label: '🟢 Lleno', color: 'bg-green-500' },
@@ -93,29 +87,46 @@ export default function InventarioCategoriaDetalle() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
-    setLoading(true);
+    const loadData = async () => {
+      try {
+        setLoading(true);
 
-    Promise.all([
-      getInventory(),
-      inventoryCategories.length === 0 ? categoryService.getAll() : Promise.resolve(inventoryCategories),
-      superCategories.length === 0 ? superCategoryService.getAll() : Promise.resolve(superCategories)
-    ]).then(([invItems, categories, superCats]) => {
-      if (!isMounted) return;
-      setInventory(invItems);
-      if (inventoryCategories.length === 0) setInventoryCategories(categories);
-      if (superCategories.length === 0) setSuperCategories(superCats);
-    }).catch(console.error).finally(() => {
-      if (isMounted) setLoading(false);
-    });
+        const [allItems, categories, superCats] = await Promise.all([
+          getInventory(),
+          fetchCategories(),
+          superCategoryService.getAll(),
+        ]);
 
-    return () => { isMounted = false; };
+        // Filtra solo los items de esta categoría
+        const filtered = allItems.filter(
+          (item: InventoryItem) => item.categoryId === categoryId
+        );
+        setInventory(filtered);
+
+        // Solo actualiza el store si está vacío
+        if (inventoryCategories.length === 0) {
+          setInventoryCategories(categories);
+        }
+        if (superCategories.length === 0) {
+          setSuperCategories(superCats);
+        }
+
+      } catch (error) {
+        console.error("Error cargando detalle:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
   }, [categoryId]);
 
   // Find category - must be before all hooks complete
   const category = inventoryCategories.find(c => c.id === categoryId);
-  const superCatInfo = category ? superCategoryLabels[category.superCategory] : null;
-  const isGranel = category?.superCategory === 'DECORACION_GRANEL';
+  const superCatInfo = category 
+    ? superCategories.find(sc => sc.id === category.superCategory) 
+    : null;
+  const isGranel = category?.measurementType === 'LIQUID';
 
   const qtyNumber = Number(adjustQty);
   const isQtyValid = qtyNumber > 0;
@@ -164,34 +175,30 @@ export default function InventarioCategoriaDetalle() {
   };
 
   const getCostDisplay = (item: InventoryItem) => {
-    switch (item.superCategory) {
-      case 'CONSUMIBLES_BASICOS':
-      case 'DECORACION_CONTABLE':
+    const cat = inventoryCategories.find(c => c.id === item.categoryId);
+    const mType = cat?.measurementType || item.measurementType;
+
+    switch (mType) {
+      case 'PIECES':
         return `$${(item.costPerPiece || 0).toFixed(2)}/pz`;
-      case 'QUIMICOS_GELES':
+      case 'LIQUID':
         return `$${(item.costPerUse || 0).toFixed(2)}/uso`;
-      case 'DECORACION_GRANEL':
-        return `$${item.purchaseCost.toFixed(0)}`;
-      case 'EQUIPO_HERRAMIENTAS':
-        return `$${(item.monthlyDepreciation || 0).toFixed(0)}/mes`;
       default:
-        return '-';
+        return `$${(item.purchaseCost || 0).toFixed(0)}`;
     }
   };
 
   const getStockDisplay = (item: InventoryItem) => {
-    switch (item.superCategory) {
-      case 'CONSUMIBLES_BASICOS':
-      case 'DECORACION_CONTABLE':
+    const cat = inventoryCategories.find(c => c.id === item.categoryId);
+    const mType = cat?.measurementType || item.measurementType;
+
+    switch (mType) {
+      case 'PIECES':
         return `${item.stockPieces || 0} pz`;
-      case 'QUIMICOS_GELES':
+      case 'LIQUID':
         return `${item.currentStock || 0} ${item.contentUnit || 'ml'}`;
-      case 'DECORACION_GRANEL':
-        return item.visualStatus || '-';
-      case 'EQUIPO_HERRAMIENTAS':
-        return `${item.usefulLifeMonths || 0}m vida útil`;
       default:
-        return '-';
+        return item.customNote || '-';
     }
   };
 
@@ -367,14 +374,14 @@ export default function InventarioCategoriaDetalle() {
   if (loading) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
-          <Loader2 className="h-16 w-16 text-muted-foreground animate-spin" />
+        <div className="flex items-center justify-center h-[60vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </MainLayout>
     );
   }
 
-  // Early return for not found - after all hooks
+  // Solo mostrar "no encontrada" cuando ya terminó de cargar
   if (!category || !superCatInfo) {
     return (
       <MainLayout>
@@ -406,7 +413,7 @@ export default function InventarioCategoriaDetalle() {
               <h1 className="text-2xl font-bold">{category.name}</h1>
             </div>
             <p className="text-muted-foreground text-sm flex items-center gap-1 mt-0.5">
-              <span>{superCatInfo.emoji}</span> {superCatInfo.label} • {superCatInfo.description}
+              <span>{superCatInfo.emoji}</span> {superCatInfo.name} • {superCatInfo.description}
             </p>
           </div>
           <Link to="/inventario">
@@ -540,31 +547,14 @@ export default function InventarioCategoriaDetalle() {
 
                         {/* Stock */}
                         <TableCell className="text-center">
-                          {isGranel ? (
-                            <Select
-                              value={item.visualStatus}
-                              onValueChange={(v) =>
-                                updateInventoryItem(item.id, {
-                                  visualStatus: v as VisualStockStatus,
-                                })
-                              }
-                            >
-                              <SelectTrigger className="w-24 h-8 mx-auto">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {visualStatusOptions.map((opt) => (
-                                  <SelectItem key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <span className="text-muted-foreground">
-                              {getStockDisplay(item)}
-                            </span>
-                          )}
+                          {(() => {
+                            const cat = inventoryCategories.find(c => c.id === item.categoryId);
+                            const mType = cat?.measurementType || item.measurementType;
+                            
+                            if (mType === 'PIECES') return `${item.stockPieces || 0} pz`;
+                            if (mType === 'LIQUID') return `${item.currentStock || 0} ${item.contentUnit || 'ml'}`;
+                            return <span className="text-muted-foreground text-xs">{item.customNote || 'Sin stock'}</span>;
+                          })()}
                         </TableCell>
 
                         {/* Estado */}

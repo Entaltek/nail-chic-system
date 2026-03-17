@@ -5,6 +5,9 @@ import categoryRoutes from "./modules/categories/category.routes";
 import inventoryRoutes from "./modules/inventory/inventoryItem.routes";
 import inventoryMovementRoutes from "./modules/movement/InventoryMovement.routes";
 import superCategoryRoutes from "./modules/superCategories/superCategory.routes";
+import serviceRoutes from "./modules/services/service.routes";
+import userPermissionRoutes from "./modules/userPermissions/userPermission.routes";
+import userRoutes from "./modules/users/user.routes";
 
 export const app = express();
 
@@ -54,3 +57,6 @@ app.use("/categories", categoryRoutes);
 app.use("/inventory-items", inventoryRoutes);
 app.use("/inventory-movements", inventoryMovementRoutes);
 app.use("/super-categories", superCategoryRoutes);
+app.use("/services", serviceRoutes);
+app.use("/user-permissions", userPermissionRoutes);
+app.use("/users", userRoutes);

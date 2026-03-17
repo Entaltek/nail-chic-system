@@ -37,33 +37,24 @@ interface UserStoreState {
   users: AppUser[];
   currentUserId: string;
   simulatingAs: string | null;
+  allowedModules: Record<AppModuleId, boolean>;
+  isSuperAdmin: boolean;
 
   updateUserPermissions: (userId: string, permissions: AppModuleId[]) => void;
-  setCurrentUser: (userId: string) => void;
+  setCurrentUser: (userId: string, email?: string) => void;
+  setAllowedModules: (modules: Record<string, boolean>) => void;
   simulateAs: (userId: string | null) => void;
-}
-
-// Standalone selectors (no new objects created inside the store)
-export function selectActiveUser(state: UserStoreState): AppUser {
-  const activeId = state.simulatingAs ?? state.currentUserId;
-  return state.users.find((u) => u.id === activeId) ?? state.users[0];
-}
-
-export function selectActivePermissions(state: UserStoreState): AppModuleId[] {
-  const user = selectActiveUser(state);
-  if (user.role === 'admin') return ALL_MODULE_IDS;
-  return user.permissions;
+  resetPermissions: () => void;
 }
 
 export const useUserStore = create<UserStoreState>()(
   persist(
     (set) => ({
-      users: [
-        { id: 'admin', name: 'Admin (Tú)', role: 'admin', permissions: [...ALL_MODULE_IDS] },
-        { id: 'laura', name: 'Laura', role: 'staff', permissions: [...DEFAULT_STAFF_PERMISSIONS] },
-      ],
-      currentUserId: 'admin',
+      users: [],
+      currentUserId: '',
       simulatingAs: null,
+      allowedModules: {} as Record<AppModuleId, boolean>,
+      isSuperAdmin: false,
 
       updateUserPermissions: (userId, permissions) =>
         set((state) => ({
@@ -72,10 +63,40 @@ export const useUserStore = create<UserStoreState>()(
           ),
         })),
 
-      setCurrentUser: (userId) => set({ currentUserId: userId }),
+      setCurrentUser: (userId, email) => set({ 
+        currentUserId: userId,
+        isSuperAdmin: email === 'sebastian.cano@entaltek.com'
+      }),
+
+      setAllowedModules: (modules) => set({ 
+        allowedModules: modules as Record<AppModuleId, boolean> 
+      }),
 
       simulateAs: (userId) => set({ simulatingAs: userId }),
+
+      resetPermissions: () => set({ 
+        allowedModules: {} as Record<AppModuleId, boolean>,
+        isSuperAdmin: false,
+        currentUserId: '',
+        simulatingAs: null
+      }),
     }),
     { name: 'entaltek-users' }
   )
 );
+
+export function selectActivePermissions(state: UserStoreState): AppModuleId[] {
+  if (state.isSuperAdmin && !state.simulatingAs) return ALL_MODULE_IDS as unknown as AppModuleId[];
+  
+  const activePermissions: AppModuleId[] = [];
+  Object.entries(state.allowedModules).forEach(([modId, allowed]) => {
+    if (allowed) activePermissions.push(modId as AppModuleId);
+  });
+  
+  return activePermissions;
+}
+
+export function isModuleAllowed(state: UserStoreState, moduleId: AppModuleId): boolean {
+  if (state.isSuperAdmin && !state.simulatingAs) return true;
+  return !!state.allowedModules[moduleId];
+}

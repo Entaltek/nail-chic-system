@@ -4,7 +4,7 @@ import { useAuth } from "./AuthProvider";
 export default function ProtectedLayout() {
   const { user, loading } = useAuth();
 
-  if (loading) return null; // o un loader/splash global
+  if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
 
   return <Outlet />;

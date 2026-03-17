@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -10,40 +10,80 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Shield, Save, Eye } from "lucide-react";
+import { Shield, Save, Eye, Loader2 } from "lucide-react";
 import { APP_MODULES, AppModuleId, useUserStore } from "@/stores/userStore";
 import { toast } from "@/hooks/use-toast";
+import { getUsers, getUserPermissions, updateUserPermissions, AuthUser } from "@/services/userPermissionService";
 
 export function PermissionsPanel() {
-  const { users, updateUserPermissions, simulateAs, simulatingAs } = useUserStore();
-  const staffUsers = users.filter((u) => u.role === "staff");
+  const { simulateAs, simulatingAs } = useUserStore();
+  const [users, setUsers] = useState<AuthUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [localPerms, setLocalPerms] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
 
-  const [selectedUserId, setSelectedUserId] = useState<string>(
-    staffUsers[0]?.id ?? ""
-  );
-  const selectedUser = users.find((u) => u.id === selectedUserId);
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const data = await getUsers();
+        setUsers(data);
+        if (data.length > 0) {
+          setSelectedUserId(data[0].uid);
+          loadUserPermissions(data[0].uid);
+        }
+      } catch (error) {
+        toast({ title: "Error al cargar usuarios", variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUsers();
+  }, []);
 
-  const [localPerms, setLocalPerms] = useState<AppModuleId[]>(
-    selectedUser?.permissions ?? []
-  );
+  const loadUserPermissions = async (userId: string) => {
+    try {
+      const data = await getUserPermissions(userId);
+      if (data && data.modules) {
+        setLocalPerms(data.modules);
+      } else {
+        // Default all to false if no permissions found
+        const defaults: Record<string, boolean> = {};
+        APP_MODULES.forEach(mod => {
+          defaults[mod.id] = false;
+        });
+        setLocalPerms(defaults);
+      }
+    } catch (error) {
+      toast({ title: "Error al cargar permisos", variant: "destructive" });
+    }
+  };
 
   const handleUserChange = (userId: string) => {
     setSelectedUserId(userId);
-    const user = users.find((u) => u.id === userId);
-    setLocalPerms(user?.permissions ?? []);
+    loadUserPermissions(userId);
   };
 
-  const toggleModule = (moduleId: AppModuleId) => {
-    setLocalPerms((prev) =>
-      prev.includes(moduleId)
-        ? prev.filter((id) => id !== moduleId)
-        : [...prev, moduleId]
-    );
+  const toggleModule = (moduleId: string) => {
+    setLocalPerms((prev) => ({
+      ...prev,
+      [moduleId]: !prev[moduleId]
+    }));
   };
 
-  const handleSave = () => {
-    updateUserPermissions(selectedUserId, localPerms);
-    toast({ title: "Permisos actualizados ✅" });
+  const handleSave = async () => {
+    const user = users.find(u => u.uid === selectedUserId);
+    if (!user) return;
+
+    setSaving(true);
+    try {
+      await updateUserPermissions(selectedUserId, user.email, localPerms, user.displayName || undefined);
+      toast({ title: "Permisos actualizados ✅" });
+    } catch (error) {
+      toast({ title: "Error al guardar permisos", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSimulate = () => {
@@ -51,15 +91,27 @@ export function PermissionsPanel() {
       simulateAs(null);
     } else {
       simulateAs(selectedUserId);
+      // We need to set the allowedModules in the store for simulation to work
+      useUserStore.getState().setAllowedModules(localPerms);
     }
   };
 
-  if (staffUsers.length === 0) {
+  const selectedUser = users.find((u) => u.uid === selectedUserId);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (users.length === 0) {
     return (
       <Card className="shadow-card">
         <CardContent className="py-12 text-center text-muted-foreground">
           <Shield className="h-10 w-10 mx-auto mb-3 opacity-40" />
-          <p>No hay miembros del equipo. Agrega uno en la pestaña General.</p>
+          <p>No hay otros usuarios registrados en el sistema.</p>
         </CardContent>
       </Card>
     );
@@ -67,15 +119,14 @@ export function PermissionsPanel() {
 
   return (
     <div className="space-y-6">
-      {/* User Selector */}
-      <Card className="shadow-card">
+      <Card className="shadow-card border-primary/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
             Gestión de Permisos
           </CardTitle>
           <CardDescription>
-            Selecciona un usuario para configurar qué módulos puede ver
+            Configura el acceso a módulos para cada usuario del equipo
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -86,9 +137,9 @@ export function PermissionsPanel() {
                 <SelectValue placeholder="Elegir usuario..." />
               </SelectTrigger>
               <SelectContent>
-                {staffUsers.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.name}
+                {users.map((u) => (
+                  <SelectItem key={u.uid} value={u.uid}>
+                    {u.displayName || u.email}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -97,18 +148,17 @@ export function PermissionsPanel() {
         </CardContent>
       </Card>
 
-      {/* Module Switches */}
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle className="text-base">
             Módulos visibles para{" "}
-            <span className="text-primary">{selectedUser?.name}</span>
+            <span className="text-primary">{selectedUser?.displayName || selectedUser?.email}</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             {APP_MODULES.map((mod) => {
-              const isOn = localPerms.includes(mod.id);
+              const isOn = !!localPerms[mod.id];
               const isConfig = mod.id === "configuracion";
               return (
                 <div
@@ -127,8 +177,8 @@ export function PermissionsPanel() {
           </div>
 
           <div className="flex gap-3 mt-6">
-            <Button onClick={handleSave} className="flex-1">
-              <Save className="h-4 w-4 mr-2" />
+            <Button onClick={handleSave} className="flex-1" disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
               Guardar Cambios
             </Button>
             <Button variant="outline" onClick={handleSimulate}>

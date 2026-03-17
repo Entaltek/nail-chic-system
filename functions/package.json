@@ -2,7 +2,7 @@
   "name": "functions",
   "scripts": {
     "seed": "ts-node src/runSeed.ts",
-    "lint": "node ./node_modules/eslint/bin/eslint.js -c .eslintrc.js src --no-warn-ignored || exit 0",
+    "lint": "eslint --ext .js,.ts . || exit 0",
     "build": "tsc",
     "build:watch": "tsc --watch",
     "gcp-build": "npm run build",
