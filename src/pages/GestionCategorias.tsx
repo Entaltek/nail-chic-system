@@ -36,6 +36,9 @@ import {
   ChevronRight,
   Package,
   Layers,
+  Droplet,
+  Star,
+  Box,
 } from "lucide-react";
 
 import {
@@ -45,6 +48,8 @@ import {
 } from "@/stores/businessConfig";
 import { toast } from "@/hooks/use-toast";
 import { categoryService } from "@/services/categoryService";
+import { superCategoryService } from "@/services/superCategoryService";
+import { getInventory } from "@/services/inventoryService";
 import { SuperCategoryFormDialog } from "@/components/categorias/SuperCategoryFormDialog";
 
 const colorOptions = [
@@ -74,6 +79,7 @@ export default function GestionCategorias() {
     updateInventoryCategory,
     removeInventoryCategory,
     superCategories,
+    setSuperCategories,
     addSuperCategory,
     updateSuperCategory,
     removeSuperCategory,
@@ -81,6 +87,7 @@ export default function GestionCategorias() {
   } = useBusinessConfig();
 
   useEffect(() => {
+    // Cargar categorías regulares
     categoryService
       .getAll()
       .then(setInventoryCategories)
@@ -92,8 +99,27 @@ export default function GestionCategorias() {
           variant: "destructive",
         });
       });
-  }, [setInventoryCategories]);
 
+    // Cargar Súper Categorías
+    superCategoryService
+      .getAll()
+      .then(setSuperCategories)
+      .catch((e) => {
+        console.error(e);
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar las Súper Categorías desde la API",
+          variant: "destructive",
+        });
+      });
+
+    // Cargar Inventario
+    getInventory()
+      .then(setInventoryItems)
+      .catch((e) => console.error("Error cargando inventario:", e));
+  }, [setInventoryCategories, setSuperCategories]);
+
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<InventoryCategory | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -109,13 +135,14 @@ export default function GestionCategorias() {
   const [formData, setFormData] = useState({
     name: "",
     superCategory: superCategories[0]?.id ?? "",
+    measurementType: "CUSTOM" as "PIECES" | "LIQUID" | "CUSTOM",
     description: "",
     color: "bg-blue-500",
     icon: "📦",
   });
 
   const getItemCount = (categoryId: string) =>
-    inventory.filter((item: any) => item?.categoryId === categoryId).length;
+    inventoryItems.filter((item: any) => item?.categoryId === categoryId).length;
 
   const isAllSelected = selectedSuperCategories.size === 0 && searchTerm.trim() === "";
 
@@ -166,6 +193,7 @@ export default function GestionCategorias() {
     setFormData({
       name: "",
       superCategory: superCategories[0]?.id ?? "",
+      measurementType: "CUSTOM",
       description: "",
       color: "bg-blue-500",
       icon: "📦",
@@ -179,6 +207,7 @@ export default function GestionCategorias() {
       setFormData({
         name: category.name,
         superCategory: category.superCategory,
+        measurementType: category.measurementType || "CUSTOM",
         description: category.description,
         color: category.color,
         icon: category.icon,
@@ -231,18 +260,23 @@ export default function GestionCategorias() {
     }
   };
 
-  const handleSaveSuperCategory = (data: Omit<SuperCategory, "id">) => {
-    if (editingSuperCat) {
-      updateSuperCategory(editingSuperCat.id, data);
-      toast({ title: "Super categoría actualizada", description: `${data.name} actualizada` });
-    } else {
-      addSuperCategory(data);
-      toast({ title: "Super categoría creada", description: `${data.name} agregada` });
+  const handleSaveSuperCategory = async (data: Omit<SuperCategory, "id">) => {
+    try {
+      if (editingSuperCat) {
+        await updateSuperCategory(editingSuperCat.id, data);
+        toast({ title: "Super categoría actualizada", description: `${data.name} actualizada` });
+      } else {
+        await addSuperCategory(data);
+        toast({ title: "Super categoría creada", description: `${data.name} agregada` });
+      }
+      setEditingSuperCat(null);
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Error", description: "No se pudo guardar la súper categoría", variant: "destructive" });
     }
-    setEditingSuperCat(null);
   };
 
-  const handleDeleteSuperCategory = (sc: SuperCategory) => {
+  const handleDeleteSuperCategory = async (sc: SuperCategory) => {
     const hasCategories = inventoryCategories.some((c) => c.superCategory === sc.id);
     if (hasCategories) {
       toast({
@@ -252,8 +286,14 @@ export default function GestionCategorias() {
       });
       return;
     }
-    removeSuperCategory(sc.id);
-    toast({ title: "Super categoría eliminada", description: `${sc.name} eliminada` });
+    
+    try {
+      await removeSuperCategory(sc.id);
+      toast({ title: "Super categoría eliminada", description: `${sc.name} eliminada` });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Error", description: "No se pudo eliminar la súper categoría", variant: "destructive" });
+    }
   };
 
   const renderCategoryRow = (category: InventoryCategory, showActions = true) => {
@@ -393,6 +433,65 @@ export default function GestionCategorias() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div>
+                    <Label className="mb-2 block">Tipo de Medición</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {/* PIECES */}
+                      <div
+                        className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                          formData.measurementType === 'PIECES' 
+                            ? 'border-primary bg-primary/5 ring-1 ring-primary' 
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                        onClick={() => setFormData({ ...formData, measurementType: 'PIECES' })}
+                      >
+                        <div className="flex items-center gap-2 font-medium mb-1">
+                          <Box className="w-4 h-4 text-blue-500" />
+                          Stock por Pieza
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-tight">
+                          Productos que se cuentan uno a uno
+                        </p>
+                      </div>
+                      
+                      {/* LIQUID */}
+                      <div
+                        className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                          formData.measurementType === 'LIQUID' 
+                            ? 'border-primary bg-primary/5 ring-1 ring-primary' 
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                        onClick={() => setFormData({ ...formData, measurementType: 'LIQUID' })}
+                      >
+                        <div className="flex items-center gap-2 font-medium mb-1">
+                          <Droplet className="w-4 h-4 text-purple-500" />
+                          Stock por Gota
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-tight">
+                          Líquidos y geles medidos por contenido
+                        </p>
+                      </div>
+                      
+                      {/* CUSTOM */}
+                      <div
+                        className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                          formData.measurementType === 'CUSTOM' 
+                            ? 'border-primary bg-primary/5 ring-1 ring-primary' 
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                        onClick={() => setFormData({ ...formData, measurementType: 'CUSTOM' })}
+                      >
+                        <div className="flex items-center gap-2 font-medium mb-1">
+                          <Star className="w-4 h-4 text-amber-500" />
+                          Especial
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-tight">
+                          Sin cálculo automático, solo anotaciones
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   <div>

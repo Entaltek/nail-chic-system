@@ -1,12 +1,55 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { categoryService } from "@/services/categoryService";
+import { superCategoryService } from "@/services/superCategoryService";
 
 // Super Category Types - determines calculation logic
 export type SuperCategoryType = string;
 
 // Visual stock status for DECORACION_GRANEL
 export type VisualStockStatus = 'lleno' | 'medio' | 'bajo';
+
+// Lógica interna inferida para cálculos matemáticos en UI
+export type CalculationLogicType =
+  | 'CONSUMIBLES_BASICOS'
+  | 'QUIMICOS_GELES'
+  | 'DECORACION_CONTABLE'
+  | 'DECORACION_GRANEL'
+  | 'EQUIPO_HERRAMIENTAS'
+  | 'DEFAULT';
+
+export function getCalculationLogic(
+  superCatId: string,
+  superCategories: SuperCategory[]
+): CalculationLogicType {
+  const sc = superCategories.find((s) => s.id === superCatId);
+  if (!sc) return 'DEFAULT';
+
+  const name = sc.name.toLowerCase();
+  
+  if (name.includes('consumible') || name.includes('básico') || name.includes('basico') || name.includes('desechable')) {
+    return 'CONSUMIBLES_BASICOS';
+  }
+  if (name.includes('químico') || name.includes('quimico') || name.includes('gel') || name.includes('liquido') || name.includes('líquido') || name.includes('acrílico') || name.includes('acrilico')) {
+    return 'QUIMICOS_GELES';
+  }
+  if (name.includes('contable') || name.includes('pieza') || name.includes('charm') || name.includes('cristal')) {
+    return 'DECORACION_CONTABLE';
+  }
+  if (name.includes('granel') || name.includes('polvo') || name.includes('efecto') || name.includes('glitter')) {
+    return 'DECORACION_GRANEL';
+  }
+  if (name.includes('equipo') || name.includes('herramienta') || name.includes('eléctrico') || name.includes('electrico')) {
+    return 'EQUIPO_HERRAMIENTAS';
+  }
+
+  // Fallback map para los ID hardcodeados anteriores por si acaso siguen en datos mock
+  if (superCatId === 'CONSUMIBLES_BASICOS' || superCatId === 'QUIMICOS_GELES' || superCatId === 'DECORACION_CONTABLE' || superCatId === 'DECORACION_GRANEL' || superCatId === 'EQUIPO_HERRAMIENTAS') {
+     return superCatId as CalculationLogicType;
+  }
+
+  return 'DEFAULT';
+}
 
 // Dynamic super category definition
 export interface SuperCategory {
@@ -23,6 +66,7 @@ export interface InventoryCategory {
   userId?: string;
   name: string;
   superCategory: SuperCategoryType;
+  measurementType?: 'PIECES' | 'LIQUID' | 'CUSTOM';
   description: string;
   color: string;
   icon: string;
@@ -141,6 +185,9 @@ export interface InventoryItem {
   purchaseDate?: string;
   usefulLifeMonths?: number;
   monthlyDepreciation?: number;
+  
+  // SPECIAL items
+  customNote?: string;
 }
 
 // Service log for analytics
@@ -210,9 +257,9 @@ interface BusinessConfigState {
   // Super Categories (dynamic)
   superCategories: SuperCategory[];
   setSuperCategories: (superCategories: SuperCategory[]) => void;
-  addSuperCategory: (superCategory: Omit<SuperCategory, 'id'>) => void;
-  updateSuperCategory: (id: string, superCategory: Partial<SuperCategory>) => void;
-  removeSuperCategory: (id: string) => void;
+  addSuperCategory: (superCategory: Omit<SuperCategory, 'id'>) => Promise<void>;
+  updateSuperCategory: (id: string, superCategory: Partial<SuperCategory>) => Promise<void>;
+  removeSuperCategory: (id: string) => Promise<void>;
   
   // Inventory Categories
   inventoryCategories: InventoryCategory[];
@@ -477,23 +524,26 @@ export const useBusinessConfig = create<BusinessConfigState>()(
       teamMembers: defaultTeamMembers,
       commissionBase: 'gross',
       
-      superCategories: [
-        { id: 'CONSUMIBLES_BASICOS', name: 'Consumibles Básicos', description: 'Stock exacto por pieza (Limas, Guantes, Tips)', color: 'bg-blue-500', emoji: '🔵' },
-        { id: 'QUIMICOS_GELES', name: 'Químicos y Geles', description: 'Calculadora de gota - costo por ml/gr (Monómero, Gel)', color: 'bg-purple-500', emoji: '🟣' },
-        { id: 'DECORACION_CONTABLE', name: 'Decoración Contable', description: 'Stock exacto por pieza (Charms, Cristales Grandes)', color: 'bg-pink-500', emoji: '✨' },
-        { id: 'DECORACION_GRANEL', name: 'Decoración a Granel', description: 'Estado visual: Lleno/Medio/Bajo (Glitter, Efectos)', color: 'bg-rose-400', emoji: '🎨' },
-        { id: 'EQUIPO_HERRAMIENTAS', name: 'Equipo y Herramientas', description: 'Depreciación mensual (Drill, Lámpara, Pinceles)', color: 'bg-amber-500', emoji: '🛠' },
-      ],
+      superCategories: [], // Ya no cargamos seedData de súper categorías para que vengan de BD
       setSuperCategories: (superCategories) => set({ superCategories }),
-      addSuperCategory: (superCategory) => set((state) => ({
-        superCategories: [...state.superCategories, { ...superCategory, id: Date.now().toString() }],
-      })),
-      updateSuperCategory: (id, superCategory) => set((state) => ({
-        superCategories: state.superCategories.map((sc) => sc.id === id ? { ...sc, ...superCategory } : sc),
-      })),
-      removeSuperCategory: (id) => set((state) => ({
-        superCategories: state.superCategories.filter((sc) => sc.id !== id),
-      })),
+      addSuperCategory: async (superCategory) => {
+        const result = await superCategoryService.create(superCategory);
+        set((state) => ({
+          superCategories: [...state.superCategories, { ...superCategory, id: result.id }],
+        }));
+      },
+      updateSuperCategory: async (id, superCategory) => {
+        await superCategoryService.update(id, superCategory);
+        set((state) => ({
+          superCategories: state.superCategories.map((sc) => sc.id === id ? { ...sc, ...superCategory } : sc),
+        }));
+      },
+      removeSuperCategory: async (id) => {
+        await superCategoryService.delete(id);
+        set((state) => ({
+          superCategories: state.superCategories.filter((sc) => sc.id !== id),
+        }));
+      },
 
       inventoryCategories: [],
       setInventoryCategories: (categories) => set({ inventoryCategories: categories }),
@@ -613,8 +663,10 @@ export const useBusinessConfig = create<BusinessConfigState>()(
 
               const delta = type === 'in' ? amount : -amount;
 
+              const logic = getCalculationLogic(item.superCategory, state.superCategories);
+
               // CONSUMIBLES (piezas)
-              if (item.superCategory === 'CONSUMIBLES_BASICOS' || item.superCategory === 'DECORACION_CONTABLE') {
+              if (logic === 'CONSUMIBLES_BASICOS' || logic === 'DECORACION_CONTABLE') {
                 const newStock = Math.max(0, (item.stockPieces || 0) + delta);
 
                 return {
@@ -627,7 +679,7 @@ export const useBusinessConfig = create<BusinessConfigState>()(
               }
 
               // QUÍMICOS
-              if (item.superCategory === 'QUIMICOS_GELES') {
+              if (logic === 'QUIMICOS_GELES') {
                 const newStock = Math.max(0, (item.currentStock || 0) + delta);
 
                 return {
@@ -637,7 +689,7 @@ export const useBusinessConfig = create<BusinessConfigState>()(
               }
 
               // DECORACIÓN GRANEL
-              if (item.superCategory === 'DECORACION_GRANEL') {
+              if (logic === 'DECORACION_GRANEL') {
                 return {
                   ...item,
                   visualStatus: type === 'out' ? 'bajo' : 'lleno',

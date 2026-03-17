@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,7 @@ import {
   SortDesc,
   Plus,
   Minus,
+  Loader2
 } from "lucide-react";
 import { 
   useBusinessConfig, 
@@ -48,7 +49,10 @@ import {
   VisualStockStatus 
 } from "@/stores/businessConfig";
 import { toast } from "@/hooks/use-toast";
-import { createMovement } from "@/services/inventoryService";
+import { createMovement, getInventory, deleteInventoryItemApi } from "@/services/inventoryService";
+import { ConfirmDeleteDialog } from "@/components/ui/ConfirmDeleteDialog";
+import { categoryService } from "@/services/categoryService";
+import { superCategoryService } from "@/services/superCategoryService";
 
 const superCategoryLabels: Record<SuperCategoryType, { label: string; emoji: string; description: string }> = {
   CONSUMIBLES_BASICOS: { label: 'Consumibles Básicos', emoji: '🔵', description: 'Stock exacto por pieza' },
@@ -70,7 +74,7 @@ type SortDirection = 'asc' | 'desc';
 export default function InventarioCategoriaDetalle() {
   const { categoryId } = useParams<{ categoryId: string }>();
   const navigate = useNavigate();
-  const { inventory, inventoryCategories, updateInventoryItem, removeInventoryItem } = useBusinessConfig();
+  const { inventoryCategories, setInventoryCategories, superCategories, setSuperCategories, updateInventoryItem } = useBusinessConfig();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -81,6 +85,32 @@ export default function InventarioCategoriaDetalle() {
   const [adjustQty, setAdjustQty] = useState<string>("");
   const [adjustReason, setAdjustReason] = useState("");
   const [adjustType, setAdjustType] = useState<"IN" | "OUT">("IN");
+
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+
+    Promise.all([
+      getInventory(),
+      inventoryCategories.length === 0 ? categoryService.getAll() : Promise.resolve(inventoryCategories),
+      superCategories.length === 0 ? superCategoryService.getAll() : Promise.resolve(superCategories)
+    ]).then(([invItems, categories, superCats]) => {
+      if (!isMounted) return;
+      setInventory(invItems);
+      if (inventoryCategories.length === 0) setInventoryCategories(categories);
+      if (superCategories.length === 0) setSuperCategories(superCats);
+    }).catch(console.error).finally(() => {
+      if (isMounted) setLoading(false);
+    });
+
+    return () => { isMounted = false; };
+  }, [categoryId]);
 
   // Find category - must be before all hooks complete
   const category = inventoryCategories.find(c => c.id === categoryId);
@@ -247,12 +277,31 @@ export default function InventarioCategoriaDetalle() {
     }
   };
 
-  const handleDelete = (item: InventoryItem) => {
-    removeInventoryItem(item.id);
-    toast({
-      title: "Producto eliminado",
-      description: `${item.name} ha sido eliminado del inventario`,
-    });
+  const handleDeleteClick = (item: InventoryItem) => {
+    setItemToDelete(item);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteInventoryItemApi(itemToDelete.id);
+      setInventory(prev => prev.filter(i => i.id !== itemToDelete.id));
+      toast({
+        title: "Producto eliminado",
+        description: `${itemToDelete.name} ha sido eliminado del inventario`,
+      });
+      setItemToDelete(null);
+    } catch (error: any) {
+      toast({
+        title: "Error al eliminar",
+        description: error.message || "No se pudo eliminar el producto",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const applyStockAdjustment = async () => {
@@ -314,6 +363,16 @@ export default function InventarioCategoriaDetalle() {
   const totalItems = filteredItems.length;
   const criticalItems = filteredItems.filter(i => ['critical', 'urgent'].includes(getStockStatus(i))).length;
   const totalValue = filteredItems.reduce((sum, item) => sum + item.purchaseCost, 0);
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
+          <Loader2 className="h-16 w-16 text-muted-foreground animate-spin" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   // Early return for not found - after all hooks
   if (!category || !superCatInfo) {
@@ -548,7 +607,7 @@ export default function InventarioCategoriaDetalle() {
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="text-destructive"
-                                onClick={() => handleDelete(item)}
+                                onClick={() => handleDeleteClick(item)}
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Eliminar
@@ -642,6 +701,18 @@ export default function InventarioCategoriaDetalle() {
             </div>
           </div>
         </div>
+      )}
+      
+      {itemToDelete && (
+        <ConfirmDeleteDialog
+          open={!!itemToDelete}
+          onOpenChange={(open) => !open && setItemToDelete(null)}
+          title="¿Eliminar producto?"
+          description="Este producto será removido y no aparecerá más en este listado."
+          itemName={itemToDelete.name}
+          onConfirm={handleConfirmDelete}
+          loading={isDeleting}
+        />
       )}
     </MainLayout>
   );

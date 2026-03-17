@@ -2,8 +2,9 @@ import express from "express";
 import cors from "cors";
 
 import categoryRoutes from "./modules/categories/category.routes";
-import inventoryRoutes from "./modules/inventory/inventory.routes";
+import inventoryRoutes from "./modules/inventory/inventoryItem.routes";
 import inventoryMovementRoutes from "./modules/movement/InventoryMovement.routes";
+import superCategoryRoutes from "./modules/superCategories/superCategory.routes";
 
 export const app = express();
 
@@ -52,3 +53,4 @@ app.use(express.json());
 app.use("/categories", categoryRoutes);
 app.use("/inventory-items", inventoryRoutes);
 app.use("/inventory-movements", inventoryMovementRoutes);
+app.use("/super-categories", superCategoryRoutes);

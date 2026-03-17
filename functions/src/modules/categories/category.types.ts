@@ -14,8 +14,9 @@ export type InventoryVariant =
   | "VISUAL_STATUS"
   | "DEPRECIATION_MONTHLY";
 
+export type MeasurementType = "PIECES" | "LIQUID" | "CUSTOM";
+
 // (opcional) estructura de icon como en tu response actual
 export type CategoryIcon = {
-  emoji: string;
   bgClass: string;
 };

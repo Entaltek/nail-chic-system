@@ -12,6 +12,10 @@ export const categoryService = {
       throw new Error("Categoría inválida");
     }
 
+    if (!category.measurementType) {
+      category.measurementType = "CUSTOM";
+    }
+
     return CategoryRepository.create(category);
   },
 };

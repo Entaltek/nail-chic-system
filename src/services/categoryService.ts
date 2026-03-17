@@ -7,6 +7,7 @@ type CategoryDTO = {
   id: string;
   name: string;
   superCategory: SuperCategoryType;
+  measurementType?: "PIECES" | "LIQUID" | "CUSTOM";
   description?: string;
   color?: string;
   icon?: string;
@@ -25,6 +26,7 @@ const normalize = (dto: CategoryDTO): InventoryCategory => ({
   id: dto.id,
   name: dto.name,
   superCategory: dto.superCategory,
+  measurementType: dto.measurementType ?? "CUSTOM",
   description: dto.description ?? "",
   color: dto.color ?? "bg-blue-500",
   icon: dto.icon ?? "📦",

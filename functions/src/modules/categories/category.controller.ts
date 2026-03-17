@@ -15,7 +15,7 @@ export const CategoryController = {
     const id = await categoryService.create(req.body);
     return res.status(201).json({
       status: 1,
-      message: "Categoría creada correctamente",
+      message: "Categoría creada",
       data: { id },
     });
   },

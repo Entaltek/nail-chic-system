@@ -33,24 +33,20 @@ import {
   Eye,
   Search,
   ChevronRight,
+  Star,
 } from "lucide-react";
-import { 
-  useBusinessConfig, 
-  InventoryItem, 
-  InventoryCategory, 
+import {
+  useBusinessConfig,
+  InventoryItem,
+  InventoryCategory,
   SuperCategoryType,
-  VisualStockStatus 
+  VisualStockStatus,
+  fetchCategories,
+  getCalculationLogic
 } from "@/stores/businessConfig";
 import { toast } from "@/hooks/use-toast";
-import { getInventory } from "@/services/inventoryService";
-
-const superCategoryLabels: Record<SuperCategoryType, { label: string; emoji: string; description: string }> = {
-  CONSUMIBLES_BASICOS: { label: 'Consumibles Básicos', emoji: '🔵', description: 'Stock exacto por pieza' },
-  QUIMICOS_GELES: { label: 'Químicos y Geles', emoji: '🟣', description: 'Calculadora de gota' },
-  DECORACION_CONTABLE: { label: 'Decoración Contable', emoji: '✨', description: 'Piezas de alto valor' },
-  DECORACION_GRANEL: { label: 'Decoración a Granel', emoji: '🎨', description: 'Estado visual' },
-  EQUIPO_HERRAMIENTAS: { label: 'Equipo y Herramientas', emoji: '🛠', description: 'Depreciación mensual' },
-};
+import { getInventory, createInventoryItem, deleteInventoryItemApi, updateInventoryItemApi, createMovement } from "@/services/inventoryService";
+import { superCategoryService } from "@/services/superCategoryService";
 
 const visualStatusOptions: { value: VisualStockStatus; label: string; color: string }[] = [
   { value: 'lleno', label: '🟢 Lleno', color: 'bg-green-500' },
@@ -62,7 +58,14 @@ const TOP_ITEMS_LIMIT = 5;
 
 export default function Inventario2() {
   const navigate = useNavigate();
-  const { inventoryCategories, addInventoryItem, updateInventoryItem, removeInventoryItem, applyManualAdjustment } = useBusinessConfig();
+  const { 
+    inventoryCategories, 
+    setInventoryCategories, 
+    superCategories,
+    setSuperCategories,
+    updateInventoryItem, 
+    applyManualAdjustment 
+  } = useBusinessConfig();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -89,6 +92,7 @@ export default function Inventario2() {
     visualStatus: 'lleno' as VisualStockStatus,
     purchaseDate: '',
     usefulLifeMonths: '',
+    customNote: '',
   });
 
   const selectedCategory = inventoryCategories.find(c => c.id === selectedCategoryId);
@@ -119,22 +123,37 @@ export default function Inventario2() {
   };
 
   useEffect(() => {
-  const loadInventory = async () => {
-    try {
-      setLoadingInventory(true);
+    const loadInventory = async () => {
+      try {
+        setLoadingInventory(true);
 
-      const data = await getInventory();
+        const data = await getInventory();
 
-      setInventory(data);
-    } catch (error) {
-      console.error("Error cargando inventario:", error);
-    } finally {
-      setLoadingInventory(false);
-    }
-  };
+        setInventory(data);
+      } catch (error) {
+        console.error("Error cargando inventario:", error);
+      } finally {
+        setLoadingInventory(false);
+      }
+    };
 
-  loadInventory();
-}, []);
+    const loadCategories = async () => {
+      try {
+        const [categories, superCats] = await Promise.all([
+          fetchCategories(),
+          superCategoryService.getAll(),
+        ]);
+        setInventoryCategories(categories);
+        setSuperCategories(superCats);
+      } catch (error) {
+        console.error("Error cargando categorías o súper categorías:", error);
+        toast({ title: "Error cargando datos fijos", variant: "destructive" });
+      }
+    };
+
+    loadInventory();
+    loadCategories();
+  }, [setInventoryCategories]);
 
 
   const clearFilters = () => {
@@ -156,6 +175,7 @@ export default function Inventario2() {
       visualStatus: 'lleno',
       purchaseDate: '',
       usefulLifeMonths: '',
+      customNote: '',
     });
   };
 
@@ -166,7 +186,7 @@ export default function Inventario2() {
     setAdjustType('out');
   };
 
-  const handleAddItem = () => {
+  const handleAddItem = async () => {
     if (!formData.name || !selectedCategoryId || !formData.purchaseCost) {
       toast({
         title: "Campos requeridos",
@@ -189,90 +209,89 @@ export default function Inventario2() {
 
     let newItem: Omit<InventoryItem, 'id'>;
 
-    switch (category.superCategory) {
-      case 'CONSUMIBLES_BASICOS':
-      case 'DECORACION_CONTABLE': {
-        const stockPieces = parseFloat(formData.stockPieces) || 100;
-        const costPerPiece = parseFloat(formData.purchaseCost) / stockPieces;
-        const weeklyUsage = parseFloat(formData.weeklyUsageRate) || 10;
-        newItem = {
-          ...baseItem,
-          stockPieces,
-          minStockPieces: parseFloat(formData.minStockPieces) || stockPieces * 0.2,
-          costPerPiece,
-          weeklyUsageRate: weeklyUsage,
-          daysUntilEmpty: Math.floor((stockPieces / weeklyUsage) * 7),
-        };
-        break;
-      }
-      case 'QUIMICOS_GELES': {
-        const totalContent = parseFloat(formData.totalContent) || 100;
-        const estimatedUses = parseFloat(formData.estimatedUses) || 50;
-        newItem = {
-          ...baseItem,
-          totalContent,
-          contentUnit: formData.contentUnit,
-          currentStock: totalContent,
-          minStock: totalContent * 0.2,
-          estimatedUses,
-          costPerUse: parseFloat(formData.purchaseCost) / estimatedUses,
-        };
-        break;
-      }
-      case 'DECORACION_GRANEL':
-        newItem = {
-          ...baseItem,
-          visualStatus: formData.visualStatus,
-        };
-        break;
-      case 'EQUIPO_HERRAMIENTAS': {
-        const usefulLifeMonths = parseFloat(formData.usefulLifeMonths) || 12;
-        newItem = {
-          ...baseItem,
-          purchaseDate: formData.purchaseDate || new Date().toISOString().split('T')[0],
-          usefulLifeMonths,
-          monthlyDepreciation: parseFloat(formData.purchaseCost) / usefulLifeMonths,
-        };
-        break;
-      }
-      default:
-        newItem = baseItem;
+    const mType = category.measurementType;
+
+    if (mType === 'PIECES') {
+      const stockPieces = parseFloat(formData.stockPieces) || 100;
+      const costPerPiece = parseFloat(formData.purchaseCost) / stockPieces;
+      const weeklyUsage = parseFloat(formData.weeklyUsageRate) || 10;
+      newItem = {
+        ...baseItem,
+        stockPieces,
+        minStockPieces: parseFloat(formData.minStockPieces) || stockPieces * 0.2,
+        costPerPiece,
+        weeklyUsageRate: weeklyUsage,
+        daysUntilEmpty: Math.floor((stockPieces / weeklyUsage) * 7),
+      };
+    } else if (mType === 'LIQUID') {
+      const totalContent = parseFloat(formData.totalContent) || 100;
+      const estimatedUses = parseFloat(formData.estimatedUses) || 50;
+      newItem = {
+        ...baseItem,
+        totalContent,
+        contentUnit: formData.contentUnit,
+        currentStock: totalContent,
+        minStock: totalContent * 0.2,
+        estimatedUses,
+        costPerUse: parseFloat(formData.purchaseCost) / estimatedUses,
+      };
+    } else if (mType === 'CUSTOM' || !mType) {
+      newItem = {
+        ...baseItem,
+        customNote: formData.customNote || 'Sin notas adicionales',
+      };
+    } else {
+      newItem = baseItem;
     }
 
-    addInventoryItem(newItem);
-    setIsDialogOpen(false);
-    resetForm();
+    try {
+      const response = await createInventoryItem(newItem);
+      
+      setInventory(prev => [...prev, response.data]);
+      setIsDialogOpen(false);
+      resetForm();
 
-    toast({
-      title: "¡Producto agregado! 📦",
-      description: `${formData.name} en ${category.name}`,
-    });
+      toast({
+        title: "¡Producto agregado! 📦",
+        description: `${formData.name} en ${category.name}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Error al agregar producto",
+        variant: "destructive",
+      });
+    }
   };
 
   // Get status for different category types
   const getStockStatus = (item: InventoryItem) => {
-    switch (item.superCategory) {
-      case 'CONSUMIBLES_BASICOS':
-      case 'DECORACION_CONTABLE':
-        if (!item.stockPieces || !item.minStockPieces) return 'ok';
-        if (item.stockPieces <= item.minStockPieces) return 'critical';
-        if (item.daysUntilEmpty && item.daysUntilEmpty <= 7) return 'urgent';
-        if (item.daysUntilEmpty && item.daysUntilEmpty <= 14) return 'low';
-        return 'ok';
-      case 'QUIMICOS_GELES':
-        if (!item.currentStock || !item.minStock) return 'ok';
-        if (item.currentStock <= item.minStock) return 'critical';
-        if (item.currentStock <= item.minStock * 1.5) return 'low';
-        return 'ok';
-      case 'DECORACION_GRANEL':
-        if (item.visualStatus === 'bajo') return 'critical';
-        if (item.visualStatus === 'medio') return 'low';
-        return 'ok';
-      case 'EQUIPO_HERRAMIENTAS':
-        return 'ok';
-      default:
-        return 'ok';
+    const defaultLogic = getCalculationLogic(item.superCategory, superCategories);
+    const category = inventoryCategories.find(c => c.id === item.categoryId);
+    const mType = category?.measurementType;
+
+    if (mType === 'PIECES' || (!mType && (defaultLogic === 'CONSUMIBLES_BASICOS' || defaultLogic === 'DECORACION_CONTABLE'))) {
+      if (!item.stockPieces || !item.minStockPieces) return 'ok';
+      if (item.stockPieces <= item.minStockPieces) return 'critical';
+      if (item.daysUntilEmpty && item.daysUntilEmpty <= 7) return 'urgent';
+      if (item.daysUntilEmpty && item.daysUntilEmpty <= 14) return 'low';
+      return 'ok';
     }
+    
+    if (mType === 'LIQUID' || (!mType && defaultLogic === 'QUIMICOS_GELES')) {
+      if (!item.currentStock || !item.minStock) return 'ok';
+      if (item.currentStock <= item.minStock) return 'critical';
+      if (item.currentStock <= item.minStock * 1.5) return 'low';
+      return 'ok';
+    }
+
+    if (!mType && defaultLogic === 'DECORACION_GRANEL') {
+      if (item.visualStatus === 'bajo') return 'critical';
+      if (item.visualStatus === 'medio') return 'low';
+      return 'ok';
+    }
+
+    return 'ok';
   };
 
   const getStatusBadge = (status: string) => {
@@ -289,35 +308,45 @@ export default function Inventario2() {
   };
 
   const getCostDisplay = (item: InventoryItem) => {
-    switch (item.superCategory) {
-      case 'CONSUMIBLES_BASICOS':
-      case 'DECORACION_CONTABLE':
-        return `$${(item.costPerPiece || 0).toFixed(2)}/pz`;
-      case 'QUIMICOS_GELES':
-        return `$${(item.costPerUse || 0).toFixed(2)}/uso`;
-      case 'DECORACION_GRANEL':
-        return `$${item.purchaseCost.toFixed(0)}`;
-      case 'EQUIPO_HERRAMIENTAS':
-        return `$${(item.monthlyDepreciation || 0).toFixed(0)}/mes`;
-      default:
-        return '-';
+    const defaultLogic = getCalculationLogic(item.superCategory, superCategories);
+    const category = inventoryCategories.find(c => c.id === item.categoryId);
+    const mType = category?.measurementType;
+
+    if (mType === 'PIECES' || (!mType && (defaultLogic === 'CONSUMIBLES_BASICOS' || defaultLogic === 'DECORACION_CONTABLE'))) {
+      return `$${(item.costPerPiece || 0).toFixed(2)}/pz`;
     }
+    if (mType === 'LIQUID' || (!mType && defaultLogic === 'QUIMICOS_GELES')) {
+      return `$${(item.costPerUse || 0).toFixed(2)}/uso`;
+    }
+    if (!mType && defaultLogic === 'EQUIPO_HERRAMIENTAS') {
+      return `$${(item.monthlyDepreciation || 0).toFixed(0)}/mes`;
+    }
+    if (!mType && defaultLogic === 'DECORACION_GRANEL') {
+      return `$${item.purchaseCost.toFixed(0)}`;
+    }
+    
+    return '-';
   };
 
   const getStockDisplay = (item: InventoryItem) => {
-    switch (item.superCategory) {
-      case 'CONSUMIBLES_BASICOS':
-      case 'DECORACION_CONTABLE':
-        return `${item.stockPieces || 0} pz`;
-      case 'QUIMICOS_GELES':
-        return `${item.currentStock || 0} ${item.contentUnit || 'ml'}`;
-      case 'DECORACION_GRANEL':
-        return item.visualStatus || '-';
-      case 'EQUIPO_HERRAMIENTAS':
-        return `${item.usefulLifeMonths || 0}m`;
-      default:
-        return '-';
+    const defaultLogic = getCalculationLogic(item.superCategory, superCategories);
+    const category = inventoryCategories.find(c => c.id === item.categoryId);
+    const mType = category?.measurementType;
+
+    if (mType === 'PIECES' || (!mType && (defaultLogic === 'CONSUMIBLES_BASICOS' || defaultLogic === 'DECORACION_CONTABLE'))) {
+      return `${item.stockPieces || 0} pz`;
     }
+    if (mType === 'LIQUID' || (!mType && defaultLogic === 'QUIMICOS_GELES')) {
+      return `${item.currentStock || 0} ${item.contentUnit || 'ml'}`;
+    }
+    if (!mType && defaultLogic === 'DECORACION_GRANEL') {
+      return item.visualStatus || '-';
+    }
+    if (!mType && defaultLogic === 'EQUIPO_HERRAMIENTAS') {
+      return `${item.usefulLifeMonths || 0}m`;
+    }
+    
+    return '-';
   };
 
   // Group inventory by category within super category
@@ -326,10 +355,10 @@ export default function Inventario2() {
 
     inventoryCategories.forEach(cat => {
       let items = inventory.filter(item => item.categoryId === cat.id);
-      
+
       // Apply search filter
       if (searchTerm) {
-        items = items.filter(item => 
+        items = items.filter(item =>
           item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           item.category?.toLowerCase().includes(searchTerm.toLowerCase())
         );
@@ -353,15 +382,13 @@ export default function Inventario2() {
 
   // Group categories by super category
   const groupedBySuperCategory = useMemo(() => {
-    const groups: Record<SuperCategoryType, { category: InventoryCategory; items: InventoryItem[] }[]> = {
-      CONSUMIBLES_BASICOS: [],
-      QUIMICOS_GELES: [],
-      DECORACION_CONTABLE: [],
-      DECORACION_GRANEL: [],
-      EQUIPO_HERRAMIENTAS: [],
-    };
+    const groups: Record<string, { category: InventoryCategory; items: InventoryItem[] }[]> = {};
 
     Object.values(groupedByCategory).forEach(({ category, items }) => {
+      // Si la key no existe, la inicializa antes de hacer push
+      if (!groups[category.superCategory]) {
+        groups[category.superCategory] = [];
+      }
       groups[category.superCategory].push({ category, items });
     });
 
@@ -369,12 +396,14 @@ export default function Inventario2() {
   }, [groupedByCategory]);
 
   // Filter which super categories to show
+  // ✅ Después — usa las keys que realmente existen en los datos
   const filteredSuperCategories = useMemo(() => {
+    const availableKeys = Object.keys(groupedBySuperCategory);
     if (selectedSuperCategories.size === 0) {
-      return Object.keys(superCategoryLabels) as SuperCategoryType[];
+      return availableKeys;
     }
-    return Array.from(selectedSuperCategories);
-  }, [selectedSuperCategories]);
+    return Array.from(selectedSuperCategories).filter(k => availableKeys.includes(k));
+  }, [selectedSuperCategories, groupedBySuperCategory]);
 
   const isAllSelected = selectedSuperCategories.size === 0;
 
@@ -389,7 +418,7 @@ export default function Inventario2() {
   const renderItemRow = (item: InventoryItem) => {
     const status = getStockStatus(item);
     const isGranel = item.superCategory === 'DECORACION_GRANEL';
-    
+
     return (
       <div key={item.id} className="flex items-center gap-2 p-2 rounded bg-muted/30 text-sm group">
         <span className="font-medium flex-1 truncate text-sm">{item.name}</span>
@@ -432,9 +461,24 @@ export default function Inventario2() {
             variant="ghost"
             size="icon"
             className="h-6 w-6 text-destructive hover:text-destructive"
-            onClick={(e) => {
+            onClick={async (e) => {
               e.stopPropagation();
-              removeInventoryItem(item.id);
+              if (window.confirm("¿Seguro que deseas eliminar este producto?")) {
+                try {
+                  await deleteInventoryItemApi(item.id);
+                  setInventory(prev => prev.filter(i => i.id !== item.id));
+                  toast({
+                    title: "Eliminado",
+                    description: "Producto eliminado correctamente.",
+                  });
+                } catch (error: any) {
+                  toast({
+                    title: "Error",
+                    description: error.message || "Error al eliminar",
+                    variant: "destructive"
+                  });
+                }
+              }
             }}
           >
             <Trash2 className="h-3 w-3" />
@@ -448,120 +492,148 @@ export default function Inventario2() {
   const renderCategorySpecificFields = () => {
     if (!selectedCategory) return null;
 
-    switch (selectedCategory.superCategory) {
-      case 'CONSUMIBLES_BASICOS':
-      case 'DECORACION_CONTABLE':
-        return (
-          <div className="p-4 rounded-xl bg-blue-500/10 space-y-4">
-            <h4 className="font-semibold flex items-center gap-2">
-              <Box className="h-4 w-4 text-blue-500" />
-              Stock por Pieza
-            </h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Cantidad de Piezas</Label>
-                <Input type="number" value={formData.stockPieces} onChange={(e) => setFormData({ ...formData, stockPieces: e.target.value })} placeholder="100" />
-              </div>
-              <div>
-                <Label>Stock Mínimo</Label>
-                <Input type="number" value={formData.minStockPieces} onChange={(e) => setFormData({ ...formData, minStockPieces: e.target.value })} placeholder="20" />
-              </div>
+    const mType = selectedCategory.measurementType;
+    const logic = getCalculationLogic(selectedCategory.superCategory, superCategories);
+
+    if (mType === 'PIECES' || (!mType && (logic === 'CONSUMIBLES_BASICOS' || logic === 'DECORACION_CONTABLE'))) {
+      return (
+        <div className="p-4 rounded-xl bg-blue-500/10 space-y-4">
+          <h4 className="font-semibold flex items-center gap-2">
+            <Box className="h-4 w-4 text-blue-500" />
+            Stock por Pieza
+          </h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Cantidad de Piezas</Label>
+              <Input type="number" value={formData.stockPieces} onChange={(e) => setFormData({ ...formData, stockPieces: e.target.value })} placeholder="100" />
             </div>
             <div>
-              <Label>Uso semanal (piezas)</Label>
-              <Input type="number" value={formData.weeklyUsageRate} onChange={(e) => setFormData({ ...formData, weeklyUsageRate: e.target.value })} placeholder="25" />
-            </div>
-            {formData.purchaseCost && formData.stockPieces && (
-              <div className="flex items-center justify-between p-3 rounded-lg bg-background">
-                <span className="text-sm">Costo por pieza:</span>
-                <span className="text-lg font-bold text-blue-600">${(parseFloat(formData.purchaseCost) / parseFloat(formData.stockPieces)).toFixed(2)}</span>
-              </div>
-            )}
-          </div>
-        );
-
-      case 'QUIMICOS_GELES':
-        return (
-          <div className="p-4 rounded-xl bg-purple-500/10 space-y-4">
-            <h4 className="font-semibold flex items-center gap-2">
-              <Droplet className="h-4 w-4 text-purple-600" />
-              Calculadora de Gota
-            </h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Contenido Total</Label>
-                <Input type="number" value={formData.totalContent} onChange={(e) => setFormData({ ...formData, totalContent: e.target.value })} placeholder="500" />
-              </div>
-              <div>
-                <Label>Unidad</Label>
-                <Select value={formData.contentUnit} onValueChange={(v) => setFormData({ ...formData, contentUnit: v as 'ml' | 'g' })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ml">ml</SelectItem>
-                    <SelectItem value="g">g</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label>Rendimiento (usos)</Label>
-              <Input type="number" value={formData.estimatedUses} onChange={(e) => setFormData({ ...formData, estimatedUses: e.target.value })} placeholder="100" />
-            </div>
-            {formData.purchaseCost && formData.estimatedUses && (
-              <div className="flex items-center justify-between p-3 rounded-lg bg-background">
-                <span className="text-sm">Costo por uso:</span>
-                <span className="text-lg font-bold text-purple-600">${(parseFloat(formData.purchaseCost) / parseFloat(formData.estimatedUses)).toFixed(2)}</span>
-              </div>
-            )}
-          </div>
-        );
-
-      case 'DECORACION_GRANEL':
-        return (
-          <div className="p-4 rounded-xl bg-rose-500/10 space-y-4">
-            <h4 className="font-semibold flex items-center gap-2">
-              <Eye className="h-4 w-4 text-rose-500" />
-              Estado Visual
-            </h4>
-            <div className="grid grid-cols-3 gap-2">
-              {visualStatusOptions.map((option) => (
-                <Button key={option.value} type="button" variant={formData.visualStatus === option.value ? 'default' : 'outline'} className={formData.visualStatus === option.value ? option.color : ''} onClick={() => setFormData({ ...formData, visualStatus: option.value })}>
-                  {option.label}
-                </Button>
-              ))}
+              <Label>Stock Mínimo</Label>
+              <Input type="number" value={formData.minStockPieces} onChange={(e) => setFormData({ ...formData, minStockPieces: e.target.value })} placeholder="20" />
             </div>
           </div>
-        );
-
-      case 'EQUIPO_HERRAMIENTAS':
-        return (
-          <div className="p-4 rounded-xl bg-amber-500/10 space-y-4">
-            <h4 className="font-semibold flex items-center gap-2">
-              <Clock className="h-4 w-4 text-amber-600" />
-              Depreciación
-            </h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Fecha Compra</Label>
-                <Input type="date" value={formData.purchaseDate} onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })} />
-              </div>
-              <div>
-                <Label>Vida Útil (Meses)</Label>
-                <Input type="number" value={formData.usefulLifeMonths} onChange={(e) => setFormData({ ...formData, usefulLifeMonths: e.target.value })} placeholder="24" />
-              </div>
-            </div>
-            {formData.purchaseCost && formData.usefulLifeMonths && (
-              <div className="flex items-center justify-between p-3 rounded-lg bg-background">
-                <span className="text-sm">Depreciación mensual:</span>
-                <span className="text-lg font-bold text-amber-600">${(parseFloat(formData.purchaseCost) / parseFloat(formData.usefulLifeMonths)).toFixed(2)}/mes</span>
-              </div>
-            )}
+          <div>
+            <Label>Uso semanal (piezas)</Label>
+            <Input type="number" value={formData.weeklyUsageRate} onChange={(e) => setFormData({ ...formData, weeklyUsageRate: e.target.value })} placeholder="25" />
           </div>
-        );
-
-      default:
-        return null;
+          {formData.purchaseCost && formData.stockPieces && (
+            <div className="flex items-center justify-between p-3 rounded-lg bg-background">
+              <span className="text-sm">Costo por pieza:</span>
+              <span className="text-lg font-bold text-blue-600">${(parseFloat(formData.purchaseCost) / parseFloat(formData.stockPieces)).toFixed(2)}</span>
+            </div>
+          )}
+        </div>
+      );
     }
+    
+    if (mType === 'LIQUID' || (!mType && logic === 'QUIMICOS_GELES')) {
+      return (
+        <div className="p-4 rounded-xl bg-purple-500/10 space-y-4">
+          <h4 className="font-semibold flex items-center gap-2">
+            <Droplet className="h-4 w-4 text-purple-600" />
+            Calculadora de Gota
+          </h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Contenido Total</Label>
+              <Input type="number" value={formData.totalContent} onChange={(e) => setFormData({ ...formData, totalContent: e.target.value })} placeholder="500" />
+            </div>
+            <div>
+              <Label>Unidad</Label>
+              <Select value={formData.contentUnit} onValueChange={(v) => setFormData({ ...formData, contentUnit: v as 'ml' | 'g' })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ml">ml</SelectItem>
+                  <SelectItem value="g">g</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label>Rendimiento (usos)</Label>
+            <Input type="number" value={formData.estimatedUses} onChange={(e) => setFormData({ ...formData, estimatedUses: e.target.value })} placeholder="100" />
+          </div>
+          {formData.purchaseCost && formData.estimatedUses && (
+            <div className="flex items-center justify-between p-3 rounded-lg bg-background">
+              <span className="text-sm">Costo por uso:</span>
+              <span className="text-lg font-bold text-purple-600">${(parseFloat(formData.purchaseCost) / parseFloat(formData.estimatedUses)).toFixed(2)}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    if (mType === 'CUSTOM') {
+      return (
+        <div className="p-4 rounded-xl bg-amber-500/10 space-y-4">
+          <h4 className="font-semibold flex items-center gap-2">
+            <Star className="h-4 w-4 text-amber-500" />
+            Producto Especial
+          </h4>
+          <div>
+            <Label>Descripción del producto especial</Label>
+            <Input value={formData.customNote} onChange={(e) => setFormData({ ...formData, customNote: e.target.value })} placeholder="Anotaciones extra..." />
+          </div>
+        </div>
+      );
+    }
+
+    // Existing DECORACION_GRANEL logic fallback
+    if (!mType && logic === 'DECORACION_GRANEL') {
+      return (
+        <div className="p-4 rounded-xl bg-rose-500/10 space-y-4">
+          <h4 className="font-semibold flex items-center gap-2">
+            <Eye className="h-4 w-4 text-rose-500" />
+            Estado Visual
+          </h4>
+          <div className="grid grid-cols-3 gap-2">
+            {visualStatusOptions.map((option) => (
+              <Button key={option.value} type="button" variant={formData.visualStatus === option.value ? 'default' : 'outline'} className={formData.visualStatus === option.value ? option.color : ''} onClick={() => setFormData({ ...formData, visualStatus: option.value })}>
+                {option.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Existing EQUIPO_HERRAMIENTAS logic fallback
+    if (!mType && logic === 'EQUIPO_HERRAMIENTAS') {
+      return (
+        <div className="p-4 rounded-xl bg-amber-500/10 space-y-4">
+          <h4 className="font-semibold flex items-center gap-2">
+            <Clock className="h-4 w-4 text-amber-600" />
+            Depreciación
+          </h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Fecha Compra</Label>
+              <Input type="date" value={formData.purchaseDate} onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })} />
+            </div>
+            <div>
+              <Label>Vida Útil (Meses)</Label>
+              <Input type="number" value={formData.usefulLifeMonths} onChange={(e) => setFormData({ ...formData, usefulLifeMonths: e.target.value })} placeholder="24" />
+            </div>
+          </div>
+          {formData.purchaseCost && formData.usefulLifeMonths && (
+            <div className="flex items-center justify-between p-3 rounded-lg bg-background">
+              <span className="text-sm">Depreciación mensual:</span>
+              <span className="text-lg font-bold text-amber-600">${(parseFloat(formData.purchaseCost) / parseFloat(formData.usefulLifeMonths)).toFixed(2)}/mes</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    // No mType and no recognized fallback logic
+    return (
+      <div className="p-4 rounded-xl border border-dashed text-center">
+        <p className="text-sm text-muted-foreground">
+          Esta categoría no tiene tipo de medición configurado.<br/>
+          Edítala en Gestión de Categorías para habilitar el formulario completo.
+        </p>
+      </div>
+    );
   };
 
   return (
@@ -604,23 +676,20 @@ export default function Inventario2() {
                         <SelectValue placeholder="Elige categoría..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {Object.entries(superCategoryLabels).map(([superCat, info]) => {
-                          const cats = inventoryCategories.filter(c => c.superCategory === superCat);
-                          if (cats.length === 0) return null;
-                          return (
-                            <div key={superCat}>
-                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{info.emoji} {info.label}</div>
-                              {cats.map((cat) => (
-                                <SelectItem key={cat.id} value={cat.id}>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-lg">{cat.icon}</span>
-                                    <span>{cat.name}</span>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </div>
-                          );
-                        })}
+                        {inventoryCategories.length === 0 ? (
+                          <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                            No hay categorías registradas
+                          </div>
+                        ) : (
+                          inventoryCategories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">{cat.icon}</span>
+                                <span>{cat.name}</span>
+                              </div>
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -703,14 +772,48 @@ export default function Inventario2() {
 
                       <Button
                         className="w-full"
-                        onClick={() => {
-                          applyManualAdjustment(
-                            adjustItem.id,
-                            adjustType,
-                            parseFloat(adjustAmount || '0'),
-                            adjustReason
-                          );
-                          setAdjustItem(null);
+                        onClick={async () => {
+                          const qty = parseFloat(adjustAmount || '0');
+                          if (!qty || qty <= 0) {
+                            toast({ title: "Cantidad inválida", variant: "destructive" });
+                            return;
+                          }
+
+                          try {
+                            // 1. Registra el movimiento en el backend
+                            await createMovement({
+                              itemId: adjustItem.id,
+                              type: adjustType === 'in' ? 'IN' : 'OUT',
+                              quantity: qty,
+                              reason: adjustReason || undefined,
+                            });
+
+                            // 2. Actualiza el estado local sin recargar todo
+                            setInventory(prev => prev.map(item => {
+                              if (item.id !== adjustItem.id) return item;
+                              const delta = adjustType === 'in' ? qty : -qty;
+
+                              if (item.stockPieces !== undefined) {
+                                return { ...item, stockPieces: Math.max(0, (item.stockPieces || 0) + delta) };
+                              }
+                              if (item.currentStock !== undefined) {
+                                return { ...item, currentStock: Math.max(0, (item.currentStock || 0) + delta) };
+                              }
+                              return item;
+                            }));
+
+                            toast({ title: "Ajuste aplicado ✅" });
+                            setAdjustItem(null);
+                            setAdjustAmount('');
+                            setAdjustReason('');
+
+                          } catch (error: any) {
+                            toast({
+                              title: "Error al ajustar",
+                              description: error.message || "No se pudo registrar el movimiento",
+                              variant: "destructive",
+                            });
+                          }
                         }}
                       >
                         Confirmar ajuste
@@ -752,14 +855,23 @@ export default function Inventario2() {
             <Badge variant={isAllSelected ? "default" : "outline"} className="py-1.5 px-3 cursor-pointer hover:bg-primary/90 transition-colors" onClick={clearFilters}>
               Todas
             </Badge>
-            {Object.entries(superCategoryLabels).map(([key, info]) => {
-              const superCat = key as SuperCategoryType;
-              const isSelected = selectedSuperCategories.has(superCat);
-              const count = groupedBySuperCategory[superCat].reduce((sum, g) => sum + g.items.length, 0);
+            {superCategories.map((superCat) => {
+              const info = superCat;
+              const isSelected = selectedSuperCategories.has(superCat.id);
+
+              // ✅ Agrega || [] para evitar undefined
+              const count = (groupedBySuperCategory[superCat.id] || [])
+                .reduce((sum, g) => sum + g.items.length, 0);
+
               return (
-                <Badge key={key} variant={isSelected ? "default" : "outline"} className="py-1.5 px-3 cursor-pointer hover:bg-primary/90 transition-colors gap-1" onClick={() => toggleSuperCategoryFilter(superCat)}>
+                <Badge
+                  key={superCat.id}
+                  variant={isSelected ? "default" : "outline"}
+                  className="py-1.5 px-3 cursor-pointer hover:bg-primary/90 transition-colors gap-1"
+                  onClick={() => toggleSuperCategoryFilter(superCat.id)}
+                >
                   <span>{info.emoji}</span>
-                  <span>{info.label}</span>
+                  <span>{info.name}</span>
                   <span className="ml-1 opacity-70">({count})</span>
                 </Badge>
               );
@@ -768,76 +880,78 @@ export default function Inventario2() {
         </div>
 
         {/* Empty state or Cards Grid */}
-          {inventory.length === 0 ? (
-            <Card className="border-dashed bg-muted/20">
-              <CardContent className="flex flex-col items-center justify-center py-10 text-center">
-                <Package className="h-10 w-10 text-muted-foreground mb-3" />
-                <h3 className="font-semibold">Aún no hay productos en el inventario</h3>
-                <p className="text-sm text-muted-foreground">
-                  Agrega tu primer material para comenzar a controlar tu stock.
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className={`grid gap-4 ${isAllSelected ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
-              {filteredSuperCategories.map((superCat) => {
-                const categoryGroups = groupedBySuperCategory[superCat];
-                const info = superCategoryLabels[superCat];
-                
-                return categoryGroups.map(({ category, items }) => {
-                  if (items.length === 0) return null;
-                  
-                  const topItems = items.slice(0, TOP_ITEMS_LIMIT);
-                  const remainingCount = Math.max(0, items.length - TOP_ITEMS_LIMIT);
-                  const criticalCount = items.filter(i => ['critical', 'urgent'].includes(getStockStatus(i))).length;
-                  
-                  return (
-                    <Card 
-                      key={category.id} 
-                      className="shadow-card animate-fade-in overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
-                      onClick={() => navigate(`/inventario/categoria/${category.id}`)}
-                    >
-                      <CardHeader className="py-2 px-3 bg-muted/30">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-6 h-6 rounded ${category.color} flex items-center justify-center text-xs`}>
-                            {category.icon}
-                          </div>
-                          <CardTitle className="text-sm flex-1">{category.name}</CardTitle>
-                          <Badge variant="secondary" className="text-xs">{items.length}</Badge>
-                          {criticalCount > 0 && <Badge variant="destructive" className="text-xs">{criticalCount}</Badge>}
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        {inventory.length === 0 ? (
+          <Card className="border-dashed bg-muted/20">
+            <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+              <Package className="h-10 w-10 text-muted-foreground mb-3" />
+              <h3 className="font-semibold">Aún no hay productos en el inventario</h3>
+              <p className="text-sm text-muted-foreground">
+                Agrega tu primer material para comenzar a controlar tu stock.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className={`grid gap-4 ${isAllSelected ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
+            {filteredSuperCategories.map((superCatId) => {
+              const categoryGroups = groupedBySuperCategory[superCatId] || [];
+              const info = superCategories.find(sc => sc.id === superCatId);
+              
+              if (!info) return null;
+
+              return categoryGroups.map(({ category, items }) => {
+                if (items.length === 0) return null;
+
+                const topItems = items.slice(0, TOP_ITEMS_LIMIT);
+                const remainingCount = Math.max(0, items.length - TOP_ITEMS_LIMIT);
+                const criticalCount = items.filter(i => ['critical', 'urgent'].includes(getStockStatus(i))).length;
+
+                return (
+                  <Card
+                    key={category.id}
+                    className="shadow-card animate-fade-in overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                    onClick={() => navigate(`/inventario/categoria/${category.id}`)}
+                  >
+                    <CardHeader className="py-2 px-3 bg-muted/30">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-6 h-6 rounded ${category.color} flex items-center justify-center text-xs`}>
+                          {category.icon}
                         </div>
-                        <CardDescription className="text-xs flex items-center gap-1">
-                          <span>{info.emoji}</span> {info.description}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="p-2">
-                        <div className="space-y-1">
-                          {topItems.map((item) => renderItemRow(item))}
-                        </div>
-                        
-                        {remainingCount > 0 && (
-                          <Button
-                            variant="ghost"
-                            className="w-full mt-2 text-xs h-8 text-muted-foreground hover:text-foreground"
-                            onClick={(e) => { e.stopPropagation(); navigate(`/inventario/categoria/${category.id}`); }}
-                          >
-                            Ver {remainingCount} más
-                          </Button>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                });
-              })}
-            </div>
-          )}
+                        <CardTitle className="text-sm flex-1">{category.name}</CardTitle>
+                        <Badge variant="secondary" className="text-xs">{items.length}</Badge>
+                        {criticalCount > 0 && <Badge variant="destructive" className="text-xs">{criticalCount}</Badge>}
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <CardDescription className="text-xs flex items-center gap-1">
+                        <span>{info.emoji}</span> {info.description}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-2">
+                      <div className="space-y-1">
+                        {topItems.map((item) => renderItemRow(item))}
+                      </div>
+
+                      {remainingCount > 0 && (
+                        <Button
+                          variant="ghost"
+                          className="w-full mt-2 text-xs h-8 text-muted-foreground hover:text-foreground"
+                          onClick={(e) => { e.stopPropagation(); navigate(`/inventario/categoria/${category.id}`); }}
+                        >
+                          Ver {remainingCount} más
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              });
+            })}
+          </div>
+        )}
 
         {/* Legend */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in">
           <Info className="h-4 w-4" />
           <span>
-            Mostrando los 5 items más críticos por categoría. 
+            Mostrando los 5 items más críticos por categoría.
             <Link to="/extras" className="text-primary ml-1 hover:underline">
               Ver precios de extras →
             </Link>
