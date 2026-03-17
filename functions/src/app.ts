@@ -8,6 +8,8 @@ import superCategoryRoutes from "./modules/superCategories/superCategory.routes"
 import serviceRoutes from "./modules/services/service.routes";
 import userPermissionRoutes from "./modules/userPermissions/userPermission.routes";
 import userRoutes from "./modules/users/user.routes";
+import { teamMemberRouter } from "./modules/teamMembers/teamMember.routes";
+import { serviceRecordRouter } from "./modules/serviceRecords/serviceRecord.routes";
 
 export const app = express();
 
@@ -60,3 +62,5 @@ app.use("/super-categories", superCategoryRoutes);
 app.use("/services", serviceRoutes);
 app.use("/user-permissions", userPermissionRoutes);
 app.use("/users", userRoutes);
+app.use("/team-members", teamMemberRouter);
+app.use("/service-records", serviceRecordRouter);
