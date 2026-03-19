@@ -5,6 +5,7 @@ import categoryRoutes from "./modules/categories/category.routes";
 import inventoryRoutes from "./modules/inventory/inventoryItem.routes";
 import inventoryMovementRoutes from "./modules/movement/InventoryMovement.routes";
 import superCategoryRoutes from "./modules/superCategories/superCategory.routes";
+import clientRoutes from "./modules/clients/clients.routes";
 
 export const app = express();
 
@@ -33,7 +34,7 @@ const corsMiddleware = cors({
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   credentials: true, // ✅ importante (tu API ya lo está enviando)
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization"],
 });
 
@@ -54,3 +55,4 @@ app.use("/categories", categoryRoutes);
 app.use("/inventory-items", inventoryRoutes);
 app.use("/inventory-movements", inventoryMovementRoutes);
 app.use("/super-categories", superCategoryRoutes);
+app.use("/clients", clientRoutes);
