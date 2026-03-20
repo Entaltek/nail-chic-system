@@ -7,10 +7,16 @@ import inventoryMovementRoutes from "./modules/movement/InventoryMovement.routes
 import superCategoryRoutes from "./modules/superCategories/superCategory.routes";
 import clientRoutes from "./modules/clients/clients.routes";
 
+import serviceRoutes from "./modules/services/service.routes";
+import userPermissionRoutes from "./modules/userPermissions/userPermission.routes";
+import userRoutes from "./modules/users/user.routes";
+import { teamMemberRouter } from "./modules/teamMembers/teamMember.routes";
+import { serviceRecordRouter } from "./modules/serviceRecords/serviceRecord.routes";
+
 export const app = express();
 
 /**
- * ✅ CORS (poner ANTES de las rutas)
+ * ✅ CORS
  */
 const allowlist = new Set([
   "https://athleek-sys.web.app",
@@ -26,21 +32,16 @@ const allowlist = new Set([
 
 const corsMiddleware = cors({
   origin(origin, callback) {
-    // Permite requests sin Origin (Postman/curl)
     if (!origin) return callback(null, true);
-
     if (allowlist.has(origin)) return callback(null, true);
-
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
-  credentials: true, // ✅ importante (tu API ya lo está enviando)
+  credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization"],
 });
 
 app.use(corsMiddleware);
-
-// ✅ Responder preflight con LA MISMA config
 app.options("*", corsMiddleware);
 
 /**
@@ -55,4 +56,11 @@ app.use("/categories", categoryRoutes);
 app.use("/inventory-items", inventoryRoutes);
 app.use("/inventory-movements", inventoryMovementRoutes);
 app.use("/super-categories", superCategoryRoutes);
+
 app.use("/clients", clientRoutes);
+
+app.use("/services", serviceRoutes);
+app.use("/user-permissions", userPermissionRoutes);
+app.use("/users", userRoutes);
+app.use("/team-members", teamMemberRouter);
+app.use("/service-records", serviceRecordRouter);

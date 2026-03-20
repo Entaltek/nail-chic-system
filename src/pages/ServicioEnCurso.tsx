@@ -29,8 +29,13 @@ import {
   TrendingUp,
   TrendingDown,
 } from "lucide-react";
-import { useBusinessConfig, ServiceLog } from "@/stores/businessConfig";
+import { Loader2 } from "lucide-react";
+import { useBusinessConfig } from "@/stores/businessConfig";
 import { toast } from "@/hooks/use-toast";
+import { getServices } from "@/services/serviceService";
+import { teamMemberService } from "@/services/teamMemberService";
+import { serviceRecordService } from "@/services/serviceRecordService";
+import { useAuth } from "@/auth/AuthProvider";
 
 const TIMER_STORAGE_KEY = "entaltek-active-timer";
 
@@ -43,12 +48,12 @@ interface TimerState {
 }
 
 export default function ServicioEnCurso() {
-  const {
-    services,
-    teamMembers,
-    costPerMinute,
-    addServiceLog,
-  } = useBusinessConfig();
+  const { costPerMinute } = useBusinessConfig();
+
+  // New API states
+  const [services, setServices] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Timer state
   const [timerState, setTimerState] = useState<TimerState>(() => {
@@ -73,8 +78,10 @@ export default function ServicioEnCurso() {
   });
 
   // Form state
+  // Don't initialize with [0]?.id because it's empty initially
   const [selectedService, setSelectedService] = useState(timerState.serviceId || "");
-  const [selectedTeamMember, setSelectedTeamMember] = useState(teamMembers[0]?.id || "");
+  const [selectedTeamMember, setSelectedTeamMember] = useState(""); 
+  const [selectedClient, setSelectedClient] = useState(""); 
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "transfer">("cash");
   const [addOns, setAddOns] = useState<string[]>([]);
   const [showResult, setShowResult] = useState(false);
@@ -85,6 +92,46 @@ export default function ServicioEnCurso() {
     profit: number;
     isUnprofitable: boolean;
   } | null>(null);
+
+  const { user, loading: authLoading } = useAuth();
+
+  // Fetch data on mount, waiting for user
+  useEffect(() => {
+    let mounted = true;
+    
+    // Si no hay usuario o Firebase sigue cargando la sesión, no hacer fetch
+    if (!user || authLoading) return;
+
+    const loadData = async () => {
+      try {
+        const [servicesData, membersData] = await Promise.all([
+          getServices(),
+          teamMemberService.getAll()
+        ]);
+        
+        if (mounted) {
+          setServices(servicesData);
+          setTeamMembers(membersData);
+          if (membersData.length > 0 && !selectedTeamMember) {
+             setSelectedTeamMember(membersData[0].id);
+          }
+        }
+      } catch (error: any) {
+        console.error("Error loading data:", error);
+        if (mounted) {
+          toast({
+            title: "Error cargando datos",
+            description: error?.message || "No se pudieron cargar los servicios o el equipo.",
+            variant: "destructive"
+          });
+        }
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+    loadData();
+    return () => { mounted = false; };
+  }, [user, authLoading]);
 
   const service = services.find((s) => s.id === selectedService);
   const teamMember = teamMembers.find((m) => m.id === selectedTeamMember);
@@ -131,9 +178,10 @@ export default function ServicioEnCurso() {
   };
 
   const handleStart = () => {
-    if (!selectedService) {
+    if (!selectedService || !selectedTeamMember) {
       toast({
-        title: "Selecciona un servicio",
+        title: "Faltan datos",
+        description: "Selecciona un servicio y quién lo realizará.",
         variant: "destructive",
       });
       return;
@@ -154,67 +202,81 @@ export default function ServicioEnCurso() {
     });
   };
 
-  const handleStop = () => {
-    if (!timerState.isRunning) return;
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const realMinutes = Math.ceil(timerState.elapsedSeconds / 60);
-    const estimatedMinutes = service?.estimatedMinutes || 60;
+  const handleStop = async () => {
+    if (!timerState.isRunning || !timerState.startTime) return;
     
-    // Calculate costs
-    const timeCost = realMinutes * costPerMinute;
-    const materialCost = service?.materialCost || 0;
-    const addOnTotal = addOns.reduce((sum, id) => {
-      const addOn = addOnOptions.find((a) => a.id === id);
-      return sum + (addOn?.price || 0);
-    }, 0);
-    
-    const chargedAmount = (service?.basePrice || 0) + addOnTotal;
-    const calculatedCost = timeCost + materialCost;
-    const profit = chargedAmount - calculatedCost;
-    const isUnprofitable = profit < 0 || realMinutes > estimatedMinutes * 1.5;
+    setIsSubmitting(true);
 
-    // Save service log
-    addServiceLog({
-      date: new Date(),
-      serviceId: timerState.serviceId,
-      serviceName: timerState.serviceName,
-      estimatedMinutes,
-      realMinutes,
-      chargedAmount,
-      materialCost,
-      teamMemberId: selectedTeamMember,
-      teamMemberName: teamMember?.name || "Dueña",
-      paymentMethod,
-      addOns,
-    });
+    try {
+      const finishTime = Date.now();
+      const realMinutes = Math.ceil(timerState.elapsedSeconds / 60);
+      const estimatedMinutes = service?.estimatedMinutes || 60;
+      
+      // Calculate costs
+      const timeCost = realMinutes * costPerMinute;
+      const materialCost = service?.materialCost || 0;
+      const addOnTotal = addOns.reduce((sum, id) => {
+        const addOn = addOnOptions.find((a) => a.id === id);
+        return sum + (addOn?.price || 0);
+      }, 0);
+      
+      const chargedAmount = (service?.basePrice || 0) + addOnTotal;
+      const calculatedCost = timeCost + materialCost;
+      const profit = chargedAmount - calculatedCost;
+      const isUnprofitable = profit < 0 || realMinutes > estimatedMinutes * 1.5;
 
-    // Show result
-    setLastResult({
-      realMinutes,
-      estimatedMinutes,
-      chargedAmount,
-      profit,
-      isUnprofitable,
-    });
-    setShowResult(true);
+      // 1. Save to new ServiceRecord API
+      await serviceRecordService.create({
+        serviceId: timerState.serviceId,
+        serviceName: timerState.serviceName,
+        performedById: selectedTeamMember,
+        performedByName: teamMember?.name || "Desconocido",
+        clientId: null,
+        clientName: null,
+        startedAt: new Date(timerState.startTime).toISOString(),
+        finishedAt: new Date(finishTime).toISOString(),
+        extras: addOns,
+        notes: null
+      });
 
-    // Reset timer
-    setTimerState({
-      isRunning: false,
-      startTime: null,
-      elapsedSeconds: 0,
-      serviceId: "",
-      serviceName: "",
-    });
-    setAddOns([]);
+      // Show result
+      setLastResult({
+        realMinutes,
+        estimatedMinutes,
+        chargedAmount,
+        profit,
+        isUnprofitable,
+      });
+      setShowResult(true);
 
-    toast({
-      title: isUnprofitable ? "⚠️ ¡Atención!" : "✅ Servicio registrado",
-      description: isUnprofitable 
-        ? "Este servicio no fue rentable. Revisa los detalles."
-        : `Ganancia: $${profit.toFixed(0)}`,
-      variant: isUnprofitable ? "destructive" : "default",
-    });
+      // Reset timer
+      setTimerState({
+        isRunning: false,
+        startTime: null,
+        elapsedSeconds: 0,
+        serviceId: "",
+        serviceName: "",
+      });
+      setAddOns([]);
+
+      toast({
+        title: isUnprofitable ? "⚠️ ¡Atención!" : "✅ Servicio registrado",
+        description: isUnprofitable 
+          ? "Este servicio no fue rentable. Revisa los detalles."
+          : `Ganancia: $${profit.toFixed(0)}`,
+        variant: isUnprofitable ? "destructive" : "default",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error al guardar el servicio",
+        description: error.message || "Inténtalo nuevamente",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReset = () => {
@@ -228,6 +290,16 @@ export default function ServicioEnCurso() {
     setShowResult(false);
     setLastResult(null);
   };
+
+  if (authLoading || isLoading) {
+    return (
+      <MainLayout>
+        <div className="flex h-[50vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
@@ -281,7 +353,7 @@ export default function ServicioEnCurso() {
               <CardTitle>Configurar Servicio</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Servicio</Label>
                   <Select value={selectedService} onValueChange={setSelectedService}>
@@ -313,6 +385,17 @@ export default function ServicioEnCurso() {
                           </div>
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2 opacity-50">
+                  <Label>Cliente (Opcional)</Label>
+                  <Select value={selectedClient} onValueChange={setSelectedClient} disabled>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Próximamente" />
+                    </SelectTrigger>
+                    <SelectContent>
                     </SelectContent>
                   </Select>
                 </div>
@@ -420,7 +503,7 @@ export default function ServicioEnCurso() {
               onClick={handleStart}
               size="lg"
               className="flex-1 h-16 text-lg shadow-button"
-              disabled={!selectedService}
+              disabled={!selectedService || !selectedTeamMember}
             >
               <Play className="mr-2 h-6 w-6" />
               INICIAR SERVICIO
@@ -431,9 +514,14 @@ export default function ServicioEnCurso() {
               size="lg"
               variant="destructive"
               className="flex-1 h-16 text-lg"
+              disabled={isSubmitting}
             >
-              <Square className="mr-2 h-6 w-6" />
-              FINALIZAR
+              {isSubmitting ? (
+                <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+              ) : (
+                <Square className="mr-2 h-6 w-6" />
+              )}
+              {isSubmitting ? "GUARDANDO..." : "FINALIZAR"}
             </Button>
           )}
         </div>

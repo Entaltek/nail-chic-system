@@ -18,7 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/hooks/useTheme";
-import { useUserStore, selectActivePermissions, type AppModuleId } from "@/stores/userStore";
+import { useUserStore, selectActivePermissions, isModuleAllowed, type AppModuleId } from "@/stores/userStore";
 import logoEntaltek from "@/assets/logo_entaltek.png";
 
 const navItems: { title: string; url: string; icon: typeof LayoutDashboard; moduleId: AppModuleId }[] = [
@@ -40,8 +40,8 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme } = useTheme();
-  const activePermissions = useUserStore(selectActivePermissions);
-  const visibleItems = navItems.filter((item) => activePermissions.includes(item.moduleId));
+
+  const visibleItems = navItems; // ← muestra todo sin filtrar
 
   const handleLogout = () => {
     navigate("/login");

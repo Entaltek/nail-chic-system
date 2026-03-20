@@ -112,6 +112,8 @@ export interface ServiceRecipe {
   materialId: string;
   materialName: string;
   usageAmount: number;
+  costPerUnit: number;
+  totalCost: number;
 }
 
 // Service definition with cost calculation
@@ -162,6 +164,7 @@ export interface InventoryItem {
   
   // Common fields
   purchaseCost: number;
+  measurementType?: 'PIECES' | 'LIQUID' | 'CUSTOM';
   
   // CONSUMIBLES_BASICOS & DECORACION_CONTABLE fields
   stockPieces?: number;
