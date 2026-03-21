@@ -1,0 +1,112 @@
+{
+  "_descripcion": "Dummy payloads y responses para POST /api/clientes — todos los escenarios",
+
+  "POST /api/clientes — exito 201": {
+    "payload": {
+      "nombre": "Carolina",
+      "apellido_paterno": "Vega",
+      "apellido_materno": "Montes",
+      "telefono": "4771234567",
+      "correo": "carolina@email.com"
+    },
+    "response": {
+      "status": "success",
+      "message": "Cliente creado exitosamente",
+      "data": {
+        "id": "cliente-uuid-011",
+        "nombre": "Carolina",
+        "apellido_paterno": "Vega",
+        "apellido_materno": "Montes",
+        "telefono": "4771234567",
+        "correo": "carolina@email.com",
+        "tipo": "nuevo",
+        "sesiones_total": 0,
+        "gasto_total": 0.00,
+        "ultima_visita": null
+      },
+      "meta": null
+    }
+  },
+
+  "POST /api/clientes — exito 201 sin campos opcionales": {
+    "payload": {
+      "nombre": "Brenda",
+      "apellido_paterno": "Solis",
+      "telefono": "4779876543"
+    },
+    "response": {
+      "status": "success",
+      "message": "Cliente creado exitosamente",
+      "data": {
+        "id": "cliente-uuid-012",
+        "nombre": "Brenda",
+        "apellido_paterno": "Solis",
+        "apellido_materno": null,
+        "telefono": "4779876543",
+        "correo": null,
+        "tipo": "nuevo",
+        "sesiones_total": 0,
+        "gasto_total": 0.00,
+        "ultima_visita": null
+      },
+      "meta": null
+    }
+  },
+
+  "POST /api/clientes — error 422 telefono duplicado": {
+    "payload": {
+      "nombre": "Laura",
+      "apellido_paterno": "Perez",
+      "telefono": "4771234567"
+    },
+    "response": {
+      "status": "error",
+      "message": "El teléfono ya está registrado",
+      "data": null,
+      "meta": null
+    }
+  },
+
+  "POST /api/clientes — error 422 telefono menos de 10 digitos": {
+    "payload": {
+      "nombre": "Laura",
+      "apellido_paterno": "Perez",
+      "telefono": "477123"
+    },
+    "response": {
+      "status": "error",
+      "message": "El teléfono debe tener entre 10 y 15 dígitos",
+      "data": null,
+      "meta": null
+    }
+  },
+
+  "POST /api/clientes — error 422 correo invalido": {
+    "payload": {
+      "nombre": "Laura",
+      "apellido_paterno": "Perez",
+      "telefono": "4779998877",
+      "correo": "esto-no-es-un-correo"
+    },
+    "response": {
+      "status": "error",
+      "message": "El correo no tiene un formato válido",
+      "data": null,
+      "meta": null
+    }
+  },
+
+  "POST /api/clientes — error 422 campos requeridos vacios": {
+    "payload": {
+      "nombre": "",
+      "apellido_paterno": "",
+      "telefono": ""
+    },
+    "response": {
+      "status": "error",
+      "message": "Los campos nombre, apellido paterno y teléfono son requeridos",
+      "data": null,
+      "meta": null
+    }
+  }
+}

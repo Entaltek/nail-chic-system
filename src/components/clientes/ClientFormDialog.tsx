@@ -11,8 +11,10 @@ import {
   Form, FormField, FormItem, FormLabel, FormControl, FormMessage,
 } from "@/components/ui/form";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Eye, Users, MoreVertical, AlertCircle, UserPlus, RefreshCw, ChevronLeft, ChevronRight
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import dummyPost from "@/data/dummy-post-clientes.json";
 
 const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
 
@@ -50,7 +52,7 @@ const clientSchema = z.object({
     .string()
     .trim()
     .min(1, "El teléfono es requerido")
-    .regex(/^\d{10,15}$/, "Debe tener entre 10 y 15 dígitos"),
+    .regex(/^\d{10,15}$/, "Ingrese el número de teléfono"),
 });
 
 export type ClientFormValues = z.infer<typeof clientSchema>;
@@ -156,18 +158,56 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
     }
   };
 
-  const handleSubmit = (data: ClientFormValues) => {
-    onSave({
-      ...data,
-      nombres: formatName(data.nombres),
-      apellidoPaterno: formatName(data.apellidoPaterno),
-      apellidoMaterno: data.apellidoMaterno ? formatName(data.apellidoMaterno) : "",
-    });
-    toast({
-      title: isEditMode ? "Cliente actualizado" : "Cliente creado",
-      description: "Registro guardado exitosamente.",
-    });
-    form.reset();
+  const handleSubmit = async (data: ClientFormValues) => {
+    try {
+      // 1. Ponemos la pausa HASTA ARRIBA para que el botón "Guardando..." siempre se vea
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      const mocks = dummyPost as any;
+
+      // 2. Simulación de Error 422 (Teléfono duplicado)
+      if (data.telefono === "4771234567") {
+         // Buscamos la llave sin importar los guiones raros
+         const errorKey = Object.keys(mocks).find(key => key.includes("error 422 telefono duplicado"));
+         
+         if (errorKey) {
+           const errorData = mocks[errorKey].response;
+           form.setError("telefono", { type: "manual", message: errorData.message });
+           return; // Detenemos el guardado, la ventana no se cierra
+         } else {
+           // Plan B por si no encuentra el texto exacto
+           form.setError("telefono", { type: "manual", message: "El teléfono ya está registrado" });
+           return;
+         }
+      }
+
+      // 3. Simulación de Éxito 201
+      const successKey = Object.keys(mocks).find(key => key.includes("exito 201"));
+      const successData = successKey ? mocks[successKey].response : null;
+
+      onSave({
+        ...data,
+        nombres: formatName(data.nombres),
+        apellidoPaterno: formatName(data.apellidoPaterno),
+        apellidoMaterno: data.apellidoMaterno ? formatName(data.apellidoMaterno) : "",
+      });
+      
+      toast({
+        title: isEditMode ? "Cliente actualizado" : "Éxito",
+        description: successData?.message || "Cliente creado exitosamente",
+        duration: 2500,
+      });
+      
+      form.reset();
+      onOpenChange(false); 
+
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Ocurrió un error, intenta de nuevo",
+      });
+    }
   };
 
   const handleClose = (val: boolean) => {
@@ -299,7 +339,7 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
                 <FormLabel>Teléfono *</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="10 a 15 dígitos"
+                    placeholder="Ingrese el número de teléfono"
                     inputMode="numeric"
                     {...field}
                     onChange={(e) => field.onChange(e.target.value.replace(/\D/g, "").slice(0, 15))}

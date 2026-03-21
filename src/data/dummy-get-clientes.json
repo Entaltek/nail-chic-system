@@ -1,0 +1,218 @@
+{
+  "_descripcion": "Dummy responses para GET /api/clientes — todos los escenarios",
+
+  "GET /api/clientes (default — todos)": {
+    "status": "success",
+    "message": "Clientes obtenidos",
+    "data": [
+      {
+        "id": "cliente-uuid-001",
+        "nombre": "Maria Fernanda",
+        "apellido_paterno": "Garcia",
+        "apellido_materno": "Lopez",
+        "tipo": "frecuente"
+      },
+      {
+        "id": "cliente-uuid-002",
+        "nombre": "Ana Sofia",
+        "apellido_paterno": "Hernandez",
+        "apellido_materno": "Ruiz",
+        "tipo": "nuevo"
+      },
+      {
+        "id": "cliente-uuid-003",
+        "nombre": "Valeria",
+        "apellido_paterno": "Martinez",
+        "apellido_materno": "Cano",
+        "tipo": "frecuente"
+      },
+      {
+        "id": "cliente-uuid-004",
+        "nombre": "Lucia",
+        "apellido_paterno": "Gomez",
+        "apellido_materno": "Santos",
+        "tipo": "nuevo"
+      },
+      {
+        "id": "cliente-uuid-005",
+        "nombre": "Daniela",
+        "apellido_paterno": "Ramirez",
+        "apellido_materno": "Flores",
+        "tipo": "frecuente"
+      },
+      {
+        "id": "cliente-uuid-006",
+        "nombre": "Paola",
+        "apellido_paterno": "Torres",
+        "apellido_materno": "Vega",
+        "tipo": "nuevo"
+      },
+      {
+        "id": "cliente-uuid-007",
+        "nombre": "Ximena",
+        "apellido_paterno": "Navarro",
+        "apellido_materno": "Ortiz",
+        "tipo": "frecuente"
+      },
+      {
+        "id": "cliente-uuid-008",
+        "nombre": "Regina",
+        "apellido_paterno": "Morales",
+        "apellido_materno": "Cruz",
+        "tipo": "nuevo"
+      },
+      {
+        "id": "cliente-uuid-009",
+        "nombre": "Camila",
+        "apellido_paterno": "Rios",
+        "apellido_materno": "Chavez",
+        "tipo": "frecuente"
+      },
+      {
+        "id": "cliente-uuid-010",
+        "nombre": "Sofia",
+        "apellido_paterno": "Mendoza",
+        "apellido_materno": "Perez",
+        "tipo": "nuevo"
+      }
+    ],
+    "meta": { "total": 10, "page": 1, "per_page": 20 }
+  },
+
+  "GET /api/clientes?tipo=frecuente": {
+    "status": "success",
+    "message": "Clientes obtenidos",
+    "data": [
+      {
+        "id": "cliente-uuid-001",
+        "nombre": "Maria Fernanda",
+        "apellido_paterno": "Garcia",
+        "apellido_materno": "Lopez",
+        "tipo": "frecuente"
+      },
+      {
+        "id": "cliente-uuid-003",
+        "nombre": "Valeria",
+        "apellido_paterno": "Martinez",
+        "apellido_materno": "Cano",
+        "tipo": "frecuente"
+      },
+      {
+        "id": "cliente-uuid-005",
+        "nombre": "Daniela",
+        "apellido_paterno": "Ramirez",
+        "apellido_materno": "Flores",
+        "tipo": "frecuente"
+      },
+      {
+        "id": "cliente-uuid-007",
+        "nombre": "Ximena",
+        "apellido_paterno": "Navarro",
+        "apellido_materno": "Ortiz",
+        "tipo": "frecuente"
+      },
+      {
+        "id": "cliente-uuid-009",
+        "nombre": "Camila",
+        "apellido_paterno": "Rios",
+        "apellido_materno": "Chavez",
+        "tipo": "frecuente"
+      }
+    ],
+    "meta": { "total": 5, "page": 1, "per_page": 20 }
+  },
+
+  "GET /api/clientes?tipo=nuevo": {
+    "status": "success",
+    "message": "Clientes obtenidos",
+    "data": [
+      {
+        "id": "cliente-uuid-002",
+        "nombre": "Ana Sofia",
+        "apellido_paterno": "Hernandez",
+        "apellido_materno": "Ruiz",
+        "tipo": "nuevo"
+      },
+      {
+        "id": "cliente-uuid-004",
+        "nombre": "Lucia",
+        "apellido_paterno": "Gomez",
+        "apellido_materno": "Santos",
+        "tipo": "nuevo"
+      },
+      {
+        "id": "cliente-uuid-006",
+        "nombre": "Paola",
+        "apellido_paterno": "Torres",
+        "apellido_materno": "Vega",
+        "tipo": "nuevo"
+      },
+      {
+        "id": "cliente-uuid-008",
+        "nombre": "Regina",
+        "apellido_paterno": "Morales",
+        "apellido_materno": "Cruz",
+        "tipo": "nuevo"
+      },
+      {
+        "id": "cliente-uuid-010",
+        "nombre": "Sofia",
+        "apellido_paterno": "Mendoza",
+        "apellido_materno": "Perez",
+        "tipo": "nuevo"
+      }
+    ],
+    "meta": { "total": 5, "page": 1, "per_page": 20 }
+  },
+
+  "GET /api/clientes?search=garcia": {
+    "status": "success",
+    "message": "Clientes obtenidos",
+    "data": [
+      {
+        "id": "cliente-uuid-001",
+        "nombre": "Maria Fernanda",
+        "apellido_paterno": "Garcia",
+        "apellido_materno": "Lopez",
+        "tipo": "frecuente"
+      }
+    ],
+    "meta": { "total": 1, "page": 1, "per_page": 20 }
+  },
+
+  "GET /api/clientes?search=zzz (sin resultados)": {
+    "status": "success",
+    "message": "Clientes obtenidos",
+    "data": [],
+    "meta": { "total": 0, "page": 1, "per_page": 20 }
+  },
+
+  "GET /api/clientes?page=2 (paginacion)": {
+    "status": "success",
+    "message": "Clientes obtenidos",
+    "data": [
+      {
+        "id": "cliente-uuid-021",
+        "nombre": "Fernanda",
+        "apellido_paterno": "Ibarra",
+        "apellido_materno": "Soto",
+        "tipo": "nuevo"
+      },
+      {
+        "id": "cliente-uuid-022",
+        "nombre": "Isabel",
+        "apellido_paterno": "Castillo",
+        "apellido_materno": "Luna",
+        "tipo": "frecuente"
+      }
+    ],
+    "meta": { "total": 22, "page": 2, "per_page": 20 }
+  },
+
+  "GET /api/clientes (error 500)": {
+    "status": "error",
+    "message": "Ocurrió un error al obtener los clientes",
+    "data": null,
+    "meta": null
+  }
+}

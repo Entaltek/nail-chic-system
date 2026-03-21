@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,10 +16,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import {
-  Plus, Search, Pencil, Trash2, Eye, Users, MoreVertical, AlertCircle, UserPlus, RefreshCw,
+  Plus, Search, Pencil, Trash2, Eye, Users, MoreVertical, AlertCircle, UserPlus, RefreshCw, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ClientFormDialog, type ClientFormValues } from "@/components/clientes/ClientFormDialog";
+import dummyGet from "@/data/dummy-get-clientes.json";
 
 // --- Types ---
 type ClientType = "Nuevo" | "Frecuente";
@@ -32,44 +33,63 @@ interface Client {
   tipo: ClientType;
 }
 
-// --- Dummy data ---
-// TODO: Reemplazar por fetch real → GET /api/clients_list
-// Campos esperados: nombres, apellidoPaterno, apellidoMaterno, tipo
-const initialClients: Client[] = [
-  { id: "1", nombres: "María Fernanda", apellidoPaterno: "García", apellidoMaterno: "López", tipo: "Frecuente" },
-  { id: "2", nombres: "Ana Sofía", apellidoPaterno: "Hernández", apellidoMaterno: "Ruiz", tipo: "Nuevo" },
-  { id: "3", nombres: "Valeria", apellidoPaterno: "Martínez", apellidoMaterno: "Cano", tipo: "Frecuente" },
-  { id: "4", nombres: "Lucía", apellidoPaterno: "Gómez", apellidoMaterno: "Santos", tipo: "Nuevo" },
-  { id: "5", nombres: "Daniela", apellidoPaterno: "Ramírez", apellidoMaterno: "Flores", tipo: "Frecuente" },
-  { id: "6", nombres: "Paola", apellidoPaterno: "Torres", apellidoMaterno: "Vega", tipo: "Nuevo" },
-  { id: "7", nombres: "Ximena", apellidoPaterno: "Navarro", apellidoMaterno: "Ortiz", tipo: "Frecuente" },
-  { id: "8", nombres: "Regina", apellidoPaterno: "Morales", apellidoMaterno: "Cruz", tipo: "Nuevo" },
-  { id: "9", nombres: "Camila", apellidoPaterno: "Ríos", apellidoMaterno: "Chávez", tipo: "Frecuente" },
-  { id: "10", nombres: "Sofía", apellidoPaterno: "Mendoza", apellidoMaterno: "Pérez", tipo: "Nuevo" },
-];
-
 type FilterType = "Todos" | "Nuevo" | "Frecuente";
 type ViewState = "loading" | "error" | "empty" | "data";
 
 const fullName = (c: Client) => `${c.nombres} ${c.apellidoPaterno} ${c.apellidoMaterno}`;
 
 export default function Clientes() {
-  const [clients, setClients] = useState<Client[]>(initialClients);
+  // --- Datos Simulados (Mock API) ---
+// TODO: Reemplazar por fetch real → GET /api/clientes
+// Extraemos la data, los metadatos y el mensaje de error del JSON para simular 
+// la respuesta del servidor, y mapeamos los campos al formato de nuestra tabla:
+const rawData = (dummyGet as any)["GET /api/clientes (default — todos)"].data;
+const rawMeta = (dummyGet as any)["GET /api/clientes (default — todos)"].meta;
+const errorMessage = (dummyGet as any)["GET /api/clientes (error 500)"].message;
+
+const mappedClients: Client[] = rawData.map((item: any) => ({
+  id: item.id,
+  nombres: item.nombre,
+  apellidoPaterno: item.apellido_paterno,
+  apellidoMaterno: item.apellido_materno || "",
+  tipo: item.tipo === "frecuente" ? "Frecuente" : "Nuevo", 
+}));
+
+  const [clients, setClients] = useState<Client[]>(mappedClients);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterType>("Todos");
-  const [viewState] = useState<ViewState>("data"); // toggle for demo
+  const [viewState, setViewState] = useState<ViewState>("data"); // toggle for demo
   const [addOpen, setAddOpen] = useState(false);
   const [editClientId, setEditClientId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
 
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  useEffect(() => {
+    // en cuanto el usuario teclea o filtra se muestran los esqueletos
+    setViewState("loading"); 
+    
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      // pasados los 300ms se quitan los esqueletos y se muestra la tabla
+      setViewState("data"); 
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [search, filter]);
+
   const filtered = clients.filter((c) => {
     const matchesSearch =
-      search === "" ||
-      fullName(c).toLowerCase().includes(search.toLowerCase());
+      debouncedSearch === "" ||
+      fullName(c).toLowerCase().includes(debouncedSearch.toLowerCase());
     const matchesFilter = filter === "Todos" || c.tipo === filter;
     return matchesSearch && matchesFilter;
   });
-
+useEffect(() => {
+    if (viewState === "error") {
+      toast.error(errorMessage || "Ocurrió un error, intenta de nuevo");
+    }
+  }, [viewState, errorMessage]);
+  
   const handleEdit = (c: Client) => {
     setEditClientId(c.id);
   };
@@ -128,18 +148,17 @@ export default function Clientes() {
 
   const typeBadge = (tipo: ClientType) => (
     <Badge
-      variant={tipo === "Frecuente" ? "default" : "secondary"}
+      variant="outline"
       className={cn(
-        "text-xs",
+        "text-xs font-medium border",
         tipo === "Frecuente"
-          ? "bg-primary/15 text-primary border-primary/30"
-          : "bg-accent text-accent-foreground"
+          ? "bg-pink-500 text-white border-transparent hover:bg-pink-600" // Rosa sólido, muy agradable a la vista
+          : "bg-transparent text-pink-500 border-pink-500 hover:bg-pink-50" // Rosa outline a juego
       )}
     >
       {tipo}
     </Badge>
   );
-
   const actionButtons = (c: Client) => (
     <div className="flex items-center gap-1">
       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleView(c)} title="Ver">
@@ -226,8 +245,7 @@ export default function Clientes() {
     if (viewState === "data" && filtered.length === 0) {
       return (
         <div className="text-center py-12 text-muted-foreground">
-          <p className="font-medium">Sin resultados</p>
-          <p className="text-sm mt-1">Prueba con otro término de búsqueda o filtro</p>
+          <p className="font-medium">No se encontraron clientes</p>
         </div>
       );
     }
@@ -284,13 +302,30 @@ export default function Clientes() {
             ))}
           </div>
           <span className="text-xs text-muted-foreground whitespace-nowrap">
-            {filtered.length} cliente{filtered.length !== 1 ? "s" : ""}
+            {rawMeta.total} clientes
           </span>
         </div>
 
         <CardContent className="p-0">
           {content()}
         </CardContent>
+        {/* Paginación (UI visual para el ticket) */}
+        <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/20">
+          <div className="text-sm text-muted-foreground hidden sm:block">
+            Mostrando <span className="font-medium text-foreground">{filtered.length}</span> resultados
+          </div>
+          <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+            <Button variant="outline" size="sm" disabled>
+              <ChevronLeft className="h-4 w-4 mr-1 sm:hidden" />
+              <span className="hidden sm:inline">Anterior</span>
+            </Button>
+            <div className="text-sm font-medium">Página {rawMeta.page} de {Math.ceil(rawMeta.total / rawMeta.per_page)}</div>
+            <Button variant="outline" size="sm" disabled>
+              <span className="hidden sm:inline">Siguiente</span>
+              <ChevronRight className="h-4 w-4 ml-1 sm:hidden" />
+            </Button>
+          </div>
+        </div>
       </Card>
 
       {/* Add client form */}
