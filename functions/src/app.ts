@@ -10,7 +10,11 @@ import userPermissionRoutes from "./modules/userPermissions/userPermission.route
 import userRoutes from "./modules/users/user.routes";
 import { teamMemberRouter } from "./modules/teamMembers/teamMember.routes";
 import { serviceRecordRouter } from "./modules/serviceRecords/serviceRecord.routes";
-
+import disenoRoutes from "./modules/disenos/diseno.routes";
+import { costosRoutes, costosFijosRoutes, fondosAhorroRoutes } from "./modules/costos/costos.routes";
+import { tiposGastoRoutes } from "./modules/costos/tiposGasto.routes";
+import adicionalesRoutes from "./modules/adicionales/adicionales.routes";
+import sesionesRoutes from "./modules/sesiones/sesiones.routes";
 export const app = express();
 
 /**
@@ -50,7 +54,19 @@ app.options("*", corsMiddleware);
 /**
  * JSON middleware
  */
-app.use(express.json());
+app.use((req, res, next) => {
+  if (req.headers['content-type']?.startsWith('multipart/form-data')) {
+    return next();
+  }
+  express.json()(req, res, next);
+});
+
+app.use((req, res, next) => {
+  if (req.headers['content-type']?.startsWith('multipart/form-data')) {
+    return next();
+  }
+  express.urlencoded({ extended: true })(req, res, next);
+});
 
 /**
  * Rutas
@@ -64,3 +80,11 @@ app.use("/user-permissions", userPermissionRoutes);
 app.use("/users", userRoutes);
 app.use("/team-members", teamMemberRouter);
 app.use("/service-records", serviceRecordRouter);
+app.use("/disenos", disenoRoutes);
+
+app.use("/costos", costosRoutes);
+app.use("/costos-fijos", costosFijosRoutes);
+app.use("/fondos-ahorro", fondosAhorroRoutes);
+app.use("/tipos-gasto", tiposGastoRoutes);
+app.use("/adicionales", adicionalesRoutes);
+app.use("/sesiones", sesionesRoutes);

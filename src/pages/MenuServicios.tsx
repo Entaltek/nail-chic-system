@@ -82,7 +82,7 @@ export default function MenuServicios() {
 
   const [services, setServices] = useState<ServiceDefinition[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -164,10 +164,10 @@ export default function MenuServicios() {
           suggestedPrice,
           recipe,
         });
-        
-        setServices(prev => prev.map(s => 
-          s.id === editingId 
-            ? { ...s, name: data.name, basePrice: parseFloat(data.basePrice), estimatedMinutes: parseInt(data.estimatedMinutes), materialCost, needsLength: data.needsLength, suggestedPrice, recipe } 
+
+        setServices(prev => prev.map(s =>
+          s.id === editingId
+            ? { ...s, name: data.name, basePrice: parseFloat(data.basePrice), estimatedMinutes: parseInt(data.estimatedMinutes), materialCost, needsLength: data.needsLength, suggestedPrice, recipe }
             : s
         ));
         toast({ title: "Servicio actualizado ✨" });
@@ -181,7 +181,7 @@ export default function MenuServicios() {
           suggestedPrice,
           recipe,
         });
-        
+
         setServices(prev => [...prev, response]);
         toast({ title: "Servicio agregado 💅" });
       }
@@ -208,7 +208,7 @@ export default function MenuServicios() {
 
   const handleConfirmDelete = async () => {
     if (!itemToDelete) return;
-    
+
     try {
       setIsDeleting(true);
       await deleteServiceApi(itemToDelete.id);
@@ -262,7 +262,7 @@ export default function MenuServicios() {
             <DialogContent className="sm:max-w-2xl max-h-[90vh] p-0 overflow-hidden">
               <form onSubmit={handleSubmit(onSubmit)}>
                 <div className="grid grid-cols-1 sm:grid-cols-[1fr_260px] min-h-[480px]">
-                  
+
                   {/* Columna izquierda — formulario */}
                   <div className="flex flex-col gap-4 p-5 overflow-y-auto">
                     <DialogHeader>
@@ -355,7 +355,7 @@ export default function MenuServicios() {
                           Para servicios como acrílico o soft gel
                         </p>
                       </div>
-                      <Switch 
+                      <Switch
                         checked={watch("needsLength")}
                         onCheckedChange={(val) => setValue("needsLength", val, { shouldDirty: true })}
                       />
@@ -368,7 +368,7 @@ export default function MenuServicios() {
 
                   {/* Columna derecha — ticket de ingredientes */}
                   <div className="flex flex-col border-l bg-muted/30">
-                    
+
                     {/* Selector */}
                     <div className="p-3 border-b space-y-2">
                       <Label className="text-xs font-semibold">Ingredientes</Label>
@@ -392,9 +392,9 @@ export default function MenuServicios() {
                           onChange={(e) => setSelectedQty(parseInt(e.target.value) || 1)}
                           className="w-16 h-8 text-xs bg-background"
                         />
-                        <Button 
-                          type="button" 
-                          size="sm" 
+                        <Button
+                          type="button"
+                          size="sm"
                           className="flex-1 h-8 text-xs"
                           onClick={() => {
                             const item = inventoryItems.find(i => i.id === selectedItemId);
@@ -613,27 +613,8 @@ export default function MenuServicios() {
             </Table>
           )}
         </div>
-
-        {/* Summary */}
-        <Card className="shadow-card animate-fade-in bg-secondary text-secondary-foreground">
-          <CardContent className="p-6">
-            <div className="flex items-start gap-4">
-              <Calculator className="h-8 w-8 text-accent" />
-              <div>
-                <h3 className="font-bold text-lg mb-2">📊 Fórmula de Precio Sugerido</h3>
-                <p className="text-sm opacity-90">
-                  <strong>Precio Mínimo</strong> = (Costo por Minuto × Duración) + Costo de Materiales
-                </p>
-                <p className="text-sm opacity-70 mt-2">
-                  Donde Costo por Minuto = (Gastos Fijos ${totalFixedExpenses.toLocaleString()} + Sueldo ${desiredMonthlySalary.toLocaleString()}) 
-                  ÷ ({monthlyWorkHours} horas × 60 min) = <strong>${costPerMinute.toFixed(2)}/min</strong>
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
-      
+
       <ConfirmDeleteDialog
         open={!!itemToDelete}
         onOpenChange={(open) => !open && setItemToDelete(null)}

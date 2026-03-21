@@ -89,7 +89,7 @@ export default function Dashboard() {
             {[
               { label: "Nueva Venta", icon: "💅", href: "/nueva-venta" },
               { label: "Ver Inventario", icon: "📦", href: "/inventario" },
-              { label: "Añadir Gasto", icon: "💰", href: "/finanzas" },
+              { label: "Añadir Gasto", icon: "💰", href: "/costos-gastos" },
               { label: "Configurar", icon: "⚙️", href: "/configuracion" },
             ].map((action) => (
               <a
