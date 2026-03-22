@@ -66,7 +66,8 @@ export const TeamMemberController = {
         data: { id },
       });
     } catch (error: any) {
-      return res.status(400).json({
+      const isConflict = error.message.includes("Ya existe una dueña");
+      return res.status(isConflict ? 422 : 400).json({
         status: 0,
         message: error.message || "Error al crear miembro del equipo",
         data: null,

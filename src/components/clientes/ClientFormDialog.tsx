@@ -13,6 +13,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/auth/AuthProvider";
 
 const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
 
@@ -22,19 +23,19 @@ const formatName = (val: string) =>
     .replace(/(?:^|\s)\S/g, (c) => c.toUpperCase());
 
 const clientSchema = z.object({
-  nombres: z
+  nombre: z
     .string()
     .trim()
     .min(1, "El nombre es requerido")
     .max(100, "Máximo 100 caracteres")
     .regex(nameRegex, "Solo letras y espacios"),
-  apellidoPaterno: z
+  apellido_paterno: z
     .string()
     .trim()
     .min(1, "El apellido paterno es requerido")
     .max(100, "Máximo 100 caracteres")
     .regex(nameRegex, "Solo letras y espacios"),
-  apellidoMaterno: z
+  apellido_materno: z
     .string()
     .trim()
     .max(100, "Máximo 100 caracteres")
@@ -49,79 +50,37 @@ const clientSchema = z.object({
   telefono: z
     .string()
     .trim()
-    .min(1, "El teléfono es requerido")
+    .min(10, "Mínimo 10 dígitos")
+    .max(15, "Máximo 15 dígitos")
     .regex(/^\d{10,15}$/, "Debe tener entre 10 y 15 dígitos"),
 });
 
 export type ClientFormValues = z.infer<typeof clientSchema>;
-
-/** Raw shape coming from Firebase — fields may use English names or be null */
-interface FirebaseClientData {
-  id: string;
-  nombres?: string | null;
-  apellidoPaterno?: string | null;
-  apellidoMaterno?: string | null;
-  correo?: string | null;
-  email?: string | null;
-  telefono?: string | null;
-  phone?: string | null;
-  [key: string]: unknown;
-}
 
 type FetchState = "idle" | "loading" | "error" | "ready";
 
 interface ClientFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (data: ClientFormValues) => void;
-  /** When set the dialog works in edit mode */
+  onSuccess: () => void;
   editClientId?: string | null;
 }
 
-// --- Simulated Firebase helpers ------------------------------------------------
-// TODO: Replace with real Firebase calls
-const simulateGetClient = (id: string): Promise<FirebaseClientData> =>
-  new Promise((resolve) => {
-    setTimeout(() => {
-      // Simulated response — uses English field names & nulls on purpose
-      const mockDb: Record<string, FirebaseClientData> = {
-        "1": { id: "1", nombres: "María Fernanda", apellidoPaterno: "García", apellidoMaterno: "López", email: "maria@correo.com", phone: "5512345678" },
-        "2": { id: "2", nombres: "Ana Sofía", apellidoPaterno: "Hernández", apellidoMaterno: "Ruiz", correo: null, telefono: "5587654321" },
-        "3": { id: "3", nombres: "Valeria", apellidoPaterno: "Martínez", apellidoMaterno: "Cano", email: "valeria@mail.com", phone: "5511223344" },
-        "4": { id: "4", nombres: "Lucía", apellidoPaterno: "Gómez", apellidoMaterno: null, correo: "", telefono: "5544332211" },
-        "5": { id: "5", nombres: "Daniela", apellidoPaterno: "Ramírez", apellidoMaterno: "Flores", email: "dani@email.com", phone: "5566778899" },
-        "6": { id: "6", nombres: "Paola", apellidoPaterno: "Torres", apellidoMaterno: "Vega", correo: null, telefono: "5599887766" },
-        "7": { id: "7", nombres: "Ximena", apellidoPaterno: "Navarro", apellidoMaterno: "Ortiz", email: "ximena@test.com", phone: "5533221100" },
-        "8": { id: "8", nombres: "Regina", apellidoPaterno: "Morales", apellidoMaterno: "Cruz", correo: null, telefono: "5500112233" },
-        "9": { id: "9", nombres: "Camila", apellidoPaterno: "Ríos", apellidoMaterno: "Chávez", email: "camila@demo.com", phone: "5544556677" },
-        "10": { id: "10", nombres: "Sofía", apellidoPaterno: "Mendoza", apellidoMaterno: "Pérez", correo: "", telefono: "5577889900" },
-      };
-      resolve(mockDb[id] ?? { id, nombres: "Desconocido", apellidoPaterno: "", apellidoMaterno: null, email: null, phone: "" });
-    }, 800);
-  });
-
-/** Map Firebase response to form values, normalising nulls → "" and English → Spanish keys */
-const mapFirebaseToForm = (data: FirebaseClientData): ClientFormValues => ({
-  nombres: data.nombres ?? "",
-  apellidoPaterno: data.apellidoPaterno ?? "",
-  apellidoMaterno: data.apellidoMaterno ?? "",
-  correo: data.correo ?? data.email ?? "",
-  telefono: data.telefono ?? data.phone ?? "",
-});
-
-// -------------------------------------------------------------------------------
-
-export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: ClientFormDialogProps) {
+export function ClientFormDialog({ open, onOpenChange, onSuccess, editClientId }: ClientFormDialogProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const API_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'https://us-central1-entaltek-manicura.cloudfunctions.net/api';
+
   const isEditMode = !!editClientId;
   const [fetchState, setFetchState] = useState<FetchState>("idle");
+  const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
-      nombres: "",
-      apellidoPaterno: "",
-      apellidoMaterno: "",
+      nombre: "",
+      apellido_paterno: "",
+      apellido_materno: "",
       correo: "",
       telefono: "",
     },
@@ -136,38 +95,91 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
     }
     if (!editClientId) {
       setFetchState("ready");
-      form.reset({ nombres: "", apellidoPaterno: "", apellidoMaterno: "", correo: "", telefono: "" });
+      form.reset({ nombre: "", apellido_paterno: "", apellido_materno: "", correo: "", telefono: "" });
       return;
     }
     loadClient(editClientId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, editClientId]);
+  }, [open, editClientId, user]);
 
   const loadClient = async (id: string) => {
+    if (!user) return;
     setFetchState("loading");
     try {
-      // TODO: Replace with real Firebase GET → doc(db, "clients", id)
-      const data = await simulateGetClient(id);
-      const mapped = mapFirebaseToForm(data);
-      form.reset(mapped);
-      setFetchState("ready");
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_URL}/clientes/${id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      
+      if (data.status === 'success') {
+        const client = data.data;
+        form.reset({
+          nombre: client.nombre || "",
+          apellido_paterno: client.apellido_paterno || "",
+          apellido_materno: client.apellido_materno || "",
+          correo: client.correo || "",
+          telefono: client.telefono || ""
+        });
+        setFetchState("ready");
+      } else {
+        setFetchState("error");
+        toast({ title: "Error", description: data.message, variant: "destructive" });
+      }
     } catch {
       setFetchState("error");
     }
   };
 
-  const handleSubmit = (data: ClientFormValues) => {
-    onSave({
-      ...data,
-      nombres: formatName(data.nombres),
-      apellidoPaterno: formatName(data.apellidoPaterno),
-      apellidoMaterno: data.apellidoMaterno ? formatName(data.apellidoMaterno) : "",
-    });
-    toast({
-      title: isEditMode ? "Cliente actualizado" : "Cliente creado",
-      description: "Registro guardado exitosamente.",
-    });
-    form.reset();
+  const handleSubmit = async (data: ClientFormValues) => {
+    if (!user) return;
+    setSubmitting(true);
+    
+    try {
+      const token = await user.getIdToken();
+      
+      const payload = {
+        nombre: formatName(data.nombre),
+        apellido_paterno: formatName(data.apellido_paterno),
+        apellido_materno: data.apellido_materno ? formatName(data.apellido_materno) : undefined,
+        telefono: data.telefono,
+        correo: data.correo || undefined,
+      };
+
+      const endpoint = isEditMode ? `${API_URL}/clientes/${editClientId}` : `${API_URL}/clientes`;
+      const method = isEditMode ? 'PATCH' : 'POST';
+
+      const res = await fetch(endpoint, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseData = await res.json();
+
+      if (responseData.status === 'success') {
+        toast({ title: isEditMode ? "Cliente actualizado" : "¡Cliente registrado! 🎉" });
+        form.reset();
+        onSuccess();
+      } else {
+        toast({ 
+          title: "Error al guardar", 
+          description: responseData.message || "Verifica los datos y vuelve a intentar",
+          variant: "destructive" 
+        });
+      }
+    } catch (error: any) {
+      toast({ 
+        title: "Error de conexión", 
+        description: "No se pudo conectar con el servidor",
+        variant: "destructive" 
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleClose = (val: boolean) => {
@@ -211,7 +223,7 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
         {/* Nombres — full width */}
         <FormField
           control={form.control}
-          name="nombres"
+          name="nombre"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Nombre(s) *</FormLabel>
@@ -235,7 +247,7 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
             control={form.control}
-            name="apellidoPaterno"
+            name="apellido_paterno"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Apellido Paterno *</FormLabel>
@@ -257,7 +269,7 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
 
           <FormField
             control={form.control}
-            name="apellidoMaterno"
+            name="apellido_materno"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Apellido Materno</FormLabel>
@@ -313,12 +325,13 @@ export function ClientFormDialog({ open, onOpenChange, onSave, editClientId }: C
 
         <DialogFooter className="gap-2 pt-2">
           <DialogClose asChild>
-            <Button type="button" variant="outline">Cancelar</Button>
+            <Button type="button" variant="outline" disabled={submitting}>Cancelar</Button>
           </DialogClose>
           <Button
             type="submit"
-            disabled={isEditMode ? (!form.formState.isDirty || !form.formState.isValid) : !form.formState.isValid}
+            disabled={submitting || (isEditMode ? (!form.formState.isDirty || !form.formState.isValid) : !form.formState.isValid)}
           >
+            {submitting && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
             {isEditMode ? "Actualizar" : "Guardar"}
           </Button>
         </DialogFooter>

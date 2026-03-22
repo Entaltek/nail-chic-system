@@ -18,6 +18,7 @@ import Reportes from "./pages/Reportes";
 import ConfiguracionMaestra from "./pages/ConfiguracionMaestra";
 import CostosGastos from "./pages/CostosGastos";
 import Clientes from "./pages/Clientes";
+import ClienteDetalle from "./pages/ClienteDetalle";
 import NotFound from "./pages/NotFound";
 
 import { AuthProvider } from "@/auth/AuthProvider";
@@ -61,6 +62,7 @@ const App = () => (
             <Route path="/configuracion" element={<ConfiguracionMaestra />} />
             <Route path="/costos-gastos" element={<CostosGastos />} />
             <Route path="/clientes" element={<Clientes />} />
+            <Route path="/clientes/:id" element={<ClienteDetalle />} />
           </Route>
 
           {/* 404 */}

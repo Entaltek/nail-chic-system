@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,36 +24,76 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useBusinessConfig } from "@/stores/businessConfig";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useTheme } from "@/hooks/useTheme";
 import { toast } from "@/hooks/use-toast";
+import { teamMemberService, TeamMember } from "@/services/teamMemberService";
 import { PermissionsPanel } from "@/components/configuracion/PermissionsPanel";
 
 export default function ConfiguracionMaestra() {
   const { theme, toggleTheme } = useTheme();
-  const {
-    teamMembers,
-    addTeamMember,
-    removeTeamMember,
-  } = useBusinessConfig();
-
+  const [equipo, setEquipo] = useState<TeamMember[]>([]);
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
-  const [newMember, setNewMember] = useState({ name: "", commissionPercent: "40" });
+  const [form, setForm] = useState({ nombre: "", rol: "empleada", comision_pct: 40 });
 
-  const handleAddTeamMember = () => {
-    if (!newMember.name) {
+  const fetchEquipo = async () => {
+    try {
+      const data = await teamMemberService.getAll();
+      setEquipo(data.filter((m: any) => m.isActive));
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  useEffect(() => {
+    fetchEquipo();
+  }, []);
+
+  const handleAgregar = async () => {
+    if (!form.nombre) {
       toast({ title: "Nombre requerido", variant: "destructive" });
       return;
     }
-    addTeamMember({
-      name: newMember.name,
-      role: 'employee',
-      commissionPercent: parseFloat(newMember.commissionPercent) || 40,
-      isActive: true,
-    });
-    setNewMember({ name: "", commissionPercent: "40" });
-    setIsTeamDialogOpen(false);
-    toast({ title: "¡Miembro del equipo agregado! 👩‍🎨" });
+    try {
+      await teamMemberService.create({
+        name: form.nombre,
+        role: form.rol === "duena" ? "owner" : "employee",
+        commissionPercentage: form.rol === "duena" ? null : form.comision_pct,
+      });
+      setForm({ nombre: "", rol: "empleada", comision_pct: 40 });
+      setIsTeamDialogOpen(false);
+      toast({ title: "¡Miembro del equipo agregado! 👩‍🎨" });
+      fetchEquipo();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleEliminar = async (id: string) => {
+    try {
+      await teamMemberService.delete(id);
+      toast({ title: "Miembro del equipo eliminado" });
+      fetchEquipo();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   };
 
   return (
@@ -165,80 +205,129 @@ export default function ConfiguracionMaestra() {
                       Agregar
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                      <DialogTitle>Nueva Empleada</DialogTitle>
+                      <DialogTitle>Nueva Integrante del Equipo</DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4 mt-4">
-                      <div>
-                        <Label>Nombre</Label>
-                        <Input
-                          value={newMember.name}
-                          onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
-                          placeholder="Ej. María"
+                    
+                    <div className="space-y-4 mt-2">
+                      
+                      {/* Nombre */}
+                      <div className="space-y-1">
+                        <Label>Nombre completo *</Label>
+                        <Input 
+                          placeholder="Ej. María García"
+                          value={form.nombre}
+                          onChange={e => setForm({...form, nombre: e.target.value})}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Comisión para empleada: {newMember.commissionPercent}%</Label>
-                        <Slider
-                          value={[parseFloat(newMember.commissionPercent) || 40]}
-                          onValueChange={([value]) => setNewMember({ ...newMember, commissionPercent: value.toString() })}
-                          min={20}
-                          max={70}
-                          step={5}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Estudio recibe: {100 - (parseFloat(newMember.commissionPercent) || 40)}%
-                        </p>
+
+                      {/* Rol */}
+                      <div className="space-y-1">
+                        <Label>Rol</Label>
+                        <Select 
+                          value={form.rol} 
+                          onValueChange={v => setForm({...form, rol: v})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="empleada">Empleada</SelectItem>
+                            <SelectItem value="duena">Dueña</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <Button onClick={handleAddTeamMember} className="w-full">
+
+                      {/* Comisión */}
+                      {form.rol === 'empleada' && (
+                        <div className="space-y-2 mt-4">
+                          <Label>Comisión de la empleada: {form.comision_pct}%</Label>
+                          <Slider
+                            min={0} max={100} step={5}
+                            value={[form.comision_pct]}
+                            onValueChange={([v]) => setForm({...form, comision_pct: v})}
+                          />
+                          <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                            <span>Empleada recibe: {form.comision_pct}%</span>
+                            <span>Estudio recibe: {100 - form.comision_pct}%</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <Button onClick={handleAgregar} className="w-full mt-4">
                         Agregar al Equipo
                       </Button>
+
                     </div>
                   </DialogContent>
                 </Dialog>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {teamMembers.map((member) => (
-                    <div
-                      key={member.id}
-                      className="flex items-center justify-between p-4 rounded-xl bg-muted/30"
-                    >
+                  {equipo.map(miembro => (
+                    <div key={miembro.id}
+                         className="flex items-center justify-between p-3 
+                                    rounded-lg border bg-muted/10">
+                      
+                      {/* Avatar + info */}
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          member.role === 'owner' ? 'bg-primary text-primary-foreground' : 'bg-accent text-accent-foreground'
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+                          miembro.role === 'owner' ? 'bg-primary/20 text-primary' : 'bg-primary/10 text-primary'
                         }`}>
-                          {member.name.charAt(0)}
+                          {miembro.name?.[0]?.toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-medium">{member.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {member.role === 'owner' ? 'Dueña' : 'Empleada'}
+                          <p className="font-semibold text-sm">{miembro.name}</p>
+                          <p className="text-xs text-muted-foreground capitalize">
+                            {miembro.role === 'owner' ? '👑 Dueña' : '💅 Empleada'}
                           </p>
                         </div>
                       </div>
+
+                      {/* Comisión + acciones */}
                       <div className="flex items-center gap-3">
-                        {member.role === 'employee' && (
-                          <>
-                            <div className="text-right">
-                              <p className="font-bold">{member.commissionPercent}%</p>
-                              <p className="text-xs text-muted-foreground">comisión</p>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
-                              onClick={() => removeTeamMember(member.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </>
+                        {miembro.role === 'employee' && (
+                          <div className="text-right">
+                            <p className="text-xs text-muted-foreground">Comisión</p>
+                            <p className="font-bold text-sm text-primary">
+                              {miembro.commissionPercentage ?? 0}%
+                            </p>
+                          </div>
                         )}
-                        {member.role === 'owner' && (
-                          <Sparkles className="h-5 w-5 text-primary" />
+                        
+                        {/* No permitir eliminar a la dueña */}
+                        {miembro.role !== 'owner' && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon"
+                                      className="h-8 w-8 text-destructive hover:bg-destructive/10">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  ¿Eliminar a {miembro.name}?
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Se eliminará del equipo. Esta acción no se puede deshacer.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground hover:text-destructive-foreground focus:ring-destructive"
+                                  onClick={() => handleEliminar(miembro.id)}
+                                >
+                                  Sí, eliminar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         )}
                       </div>
+
                     </div>
                   ))}
                 </div>

@@ -18,6 +18,13 @@ export const ClientsService = {
       throw new Error("Cliente no encontrado");
     }
 
+    const stats = await ClientsRepository.calcularTipo(id);
+    client.type = stats.tipo as any;
+    client.appointmentsCount = stats.sesiones_total;
+    (client as any).gasto_total = stats.gasto_total;
+    (client as any).ultima_visita = stats.ultima_visita;
+    (client as any).historial = await ClientsRepository.getHistorial(id);
+
     return client;
   },
 

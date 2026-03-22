@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -13,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import {
   Play,
   Square,
@@ -22,6 +24,7 @@ import {
   CreditCard,
   Banknote,
   Smartphone,
+  Receipt,
   AlertTriangle,
   Check,
   Sparkles,
@@ -47,6 +50,8 @@ export interface SessionData {
   precio_estimado: number;
   tiempo_estimado_min: number;
   inicio: string;
+  cliente_id?: string;
+  cliente_nombre?: string;
 }
 
 interface TimerState {
@@ -65,6 +70,8 @@ export default function ServicioEnCurso() {
   // New API states
   const [services, setServices] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [clientes, setClientes] = useState<any[]>([]);
+  const [busquedaCliente, setBusquedaCliente] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
   // Timer state
@@ -94,7 +101,7 @@ export default function ServicioEnCurso() {
   const [selectedService, setSelectedService] = useState(timerState.serviceId || "");
   const [selectedTeamMember, setSelectedTeamMember] = useState(""); 
   const [selectedClient, setSelectedClient] = useState(""); 
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "transfer">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<"efectivo" | "tarjeta" | "transfer">("efectivo");
   const [addOns, setAddOns] = useState<string[]>([]);
   const [adicionales, setAdicionales] = useState<any[]>([]);
   const [adicionalSeleccionado, setAdicionalSeleccionado] = useState('');
@@ -122,16 +129,18 @@ export default function ServicioEnCurso() {
     const loadData = async () => {
       try {
         const token = await user.getIdToken();
-        const [servicesData, membersData, adicionalesRes] = await Promise.all([
+        const [servicesData, membersData, adicionalesRes, clientesRes] = await Promise.all([
           getServices(),
           teamMemberService.getAll(),
-          fetch(`${API_URL}/adicionales`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+          fetch(`${API_URL}/adicionales`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+          fetch(`${API_URL}/clientes`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
         ]);
         
         if (mounted) {
           setServices(servicesData);
           setTeamMembers(membersData);
           setAdicionales(adicionalesRes.data?.items ?? []);
+          if (clientesRes.status === "success") setClientes(clientesRes.data ?? []);
           if (membersData.length > 0 && !selectedTeamMember) {
              setSelectedTeamMember(membersData[0].id);
           }
@@ -289,75 +298,85 @@ export default function ServicioEnCurso() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleStop = async () => {
-    if (!timerState.isRunning || !timerState.startTime) return;
-    
-    setIsSubmitting(true);
+    if (!timerState.sesionActiva?.id) return;
+    if (!paymentMethod) {
+      toast({ 
+        title: "Selecciona un método de pago", 
+        variant: "destructive" 
+      });
+      return;
+    }
 
+    setIsSubmitting(true);
     try {
-      const finishTime = Date.now();
       const realMinutes = Math.ceil(timerState.elapsedSeconds / 60);
       const estimatedMinutes = service?.estimatedMinutes || 60;
       
-      // Calculate costs
-      const timeCost = realMinutes * costPerMinute;
       const materialCost = service?.materialCost || 0;
-      const addOnTotal = addOns.reduce((sum, id) => {
-        const addOn = addOnOptions.find((a) => a.id === id);
-        return sum + (addOn?.price || 0);
-      }, 0);
-      
-      const chargedAmount = (service?.basePrice || 0) + addOnTotal;
-      const calculatedCost = timeCost + materialCost;
+      const chargedAmount = timerState.sesionActiva.precio_estimado;
+      const calculatedCost = (realMinutes * costPerMinute) + materialCost;
       const profit = chargedAmount - calculatedCost;
       const isUnprofitable = profit < 0 || realMinutes > estimatedMinutes * 1.5;
 
-      // 1. Save to new ServiceRecord API
-      await serviceRecordService.create({
-        serviceId: timerState.serviceId,
-        serviceName: timerState.serviceName,
-        performedById: selectedTeamMember,
-        performedByName: teamMember?.name || "Desconocido",
-        clientId: null,
-        clientName: null,
-        startedAt: new Date(timerState.startTime).toISOString(),
-        finishedAt: new Date(finishTime).toISOString(),
-        extras: addOns,
-        notes: null
-      });
+      const token = await user?.getIdToken();
+      // Intentar con el endpoint de sesiones primero
+      const res = await fetch(
+        `${API_URL}/sesiones/${timerState.sesionActiva.id}/finalizar`, 
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type':  'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            precio_cobrado:    chargedAmount,
+            metodo_pago:       paymentMethod,
+            duracion_real_min: realMinutes,
+          }),
+        }
+      );
 
-      // Show result
-      setLastResult({
-        realMinutes,
-        estimatedMinutes,
-        chargedAmount,
-        profit,
-        isUnprofitable,
-      });
-      setShowResult(true);
+      const data = await res.json();
 
-      // Reset timer
-      setTimerState({
-        isRunning: false,
-        startTime: null,
-        elapsedSeconds: 0,
-        serviceId: "",
-        serviceName: "",
-      });
-      setAddOns([]);
+      if (data.status === 1 || data.status === 'success') {
+        // Show result
+        setLastResult({
+          realMinutes,
+          estimatedMinutes,
+          chargedAmount,
+          profit,
+          isUnprofitable,
+        });
+        setShowResult(true);
 
-      toast({
-        title: isUnprofitable ? "⚠️ ¡Atención!" : "✅ Servicio registrado",
-        description: isUnprofitable 
-          ? "Este servicio no fue rentable. Revisa los detalles."
-          : `Ganancia: $${profit.toFixed(0)}`,
-        variant: isUnprofitable ? "destructive" : "default",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error al guardar el servicio",
-        description: error.message || "Inténtalo nuevamente",
-        variant: "destructive",
-      });
+        // Reset timer
+        setTimerState({
+          isRunning: false,
+          startTime: null,
+          elapsedSeconds: 0,
+          serviceId: "",
+          serviceName: "",
+          sesion_id: undefined,
+          sesionActiva: null
+        });
+        setSelectedService("");
+        setAdicionalesSeleccionados([]);
+        setPaymentMethod('efectivo');
+        setSelectedClient('');
+
+        toast({ 
+          title: "¡Servicio finalizado! 🎉",
+          description: `Duración: ${realMinutes} min · Total: $${chargedAmount}`
+        });
+      } else {
+        toast({ 
+          title: "Error al finalizar", 
+          description: data.message, 
+          variant: "destructive" 
+        });
+      }
+    } catch (err) {
+      toast({ title: "Error de conexión", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -560,21 +579,65 @@ export default function ServicioEnCurso() {
                               {teamMembers.filter((m) => m.isActive).map((m) => (
                                 <SelectItem key={m.id} value={m.id}>
                                   <div className="flex items-center gap-2 font-semibold">
-                                    <User className="h-3.5 w-3.5 opacity-60" />
-                                    {m.name}
+                                    <span>{m.name}</span>
+                                    {m.role === 'owner' && <span className="text-xs">👑</span>}
+                                    {m.role === 'employee' && typeof m.commissionPercentage === 'number' && m.commissionPercentage > 0 && (
+                                      <span className="text-[10px] text-muted-foreground font-bold font-mono px-1 bg-muted rounded-sm">
+                                        {m.commissionPercentage}%
+                                      </span>
+                                    )}
                                   </div>
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="space-y-2 opacity-50">
+                        <div className="space-y-2">
                           <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">Cliente (Opcional)</Label>
-                          <Select value={selectedClient} onValueChange={setSelectedClient} disabled>
+                          <Select 
+                            value={selectedClient} 
+                            onValueChange={setSelectedClient} 
+                            disabled={!!timerState.sesionActiva}
+                          >
                             <SelectTrigger className="h-12 shadow-sm border-muted-foreground/20">
-                              <SelectValue placeholder="Próximamente" />
+                              <SelectValue placeholder="Seleccionar cliente..." />
                             </SelectTrigger>
-                            <SelectContent></SelectContent>
+                            <SelectContent>
+                              <div className="px-2 py-1.5 focus-within:ring-0">
+                                <Input
+                                  placeholder="Buscar cliente..."
+                                  value={busquedaCliente}
+                                  onChange={e => setBusquedaCliente(e.target.value)}
+                                  className="h-8 text-xs focus-visible:ring-primary/20"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onKeyDown={(e) => e.stopPropagation()}
+                                />
+                              </div>
+                              <SelectItem value="sin_cliente">Sin cliente asignado</SelectItem>
+                              {clientes
+                                .filter(c => 
+                                  `${c.nombre} ${c.apellido_paterno}`
+                                    .toLowerCase()
+                                    .includes(busquedaCliente.toLowerCase())
+                                )
+                                .map(c => (
+                                  <SelectItem key={c.id} value={c.id}>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">
+                                        {c.nombre} {c.apellido_paterno}
+                                      </span>
+                                      <span className={`text-[10px] px-1.5 rounded-full ${
+                                        c.tipo === 'frecuente'
+                                          ? 'bg-pink-100 text-pink-700'
+                                          : 'bg-gray-100 text-gray-600'
+                                      }`}>
+                                        {c.tipo === 'frecuente' ? '⭐ Frecuente' : 'Nuevo'}
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                ))
+                              }
+                            </SelectContent>
                           </Select>
                         </div>
                       </div>
@@ -609,12 +672,12 @@ export default function ServicioEnCurso() {
                     <CardContent className="p-5">
                       <RadioGroup
                         value={paymentMethod}
-                        onValueChange={(v) => setPaymentMethod(v as "cash" | "card" | "transfer")}
+                        onValueChange={(v) => setPaymentMethod(v as "efectivo" | "tarjeta" | "transfer")}
                         className="grid grid-cols-3 gap-4"
                       >
                         {[
-                          { id: "cash", name: "Efectivo", icon: Banknote },
-                          { id: "card", name: "Tarjeta", icon: CreditCard },
+                          { id: "efectivo", name: "Efectivo", icon: Banknote },
+                          { id: "tarjeta", name: "Tarjeta", icon: CreditCard },
                           { id: "transfer", name: "Transfer.", icon: Smartphone },
                         ].map((method) => (
                           <div key={method.id} className="relative">
@@ -641,9 +704,9 @@ export default function ServicioEnCurso() {
               {/* === COLUMNA DERECHA === */}
               <div className="flex flex-col gap-6 h-full min-h-0">
                 
-                {/* 4. Nuevo Adicionales Selector (Solo !isRunning y seleccionado) */}
-                {!timerState.isRunning && selectedService && (
-                  <Card className="shadow-sm border border-muted/60 flex flex-col h-full animate-fade-in overflow-hidden">
+                {/* 4. Nuevo Adicionales Selector (Siempre visible si no está corriendo el timer principal) */}
+                {!timerState.isRunning && (
+                  <Card className="shadow-sm border border-muted/60 flex flex-col h-full animate-fade-in overflow-hidden flex-1">
                     <CardHeader className="p-4 pb-3 border-b bg-muted/5 shrink-0">
                       <CardTitle className="text-sm flex items-center justify-between">
                         <span className="flex items-center gap-2 font-bold">
@@ -656,8 +719,16 @@ export default function ServicioEnCurso() {
                     </CardHeader>
                     <CardContent className="p-5 flex flex-col flex-1 min-h-[300px] overflow-hidden">
                       
-                      {/* Selector */}
-                      <div className="flex gap-2 mb-2 shrink-0">
+                      {!selectedService ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                          <p className="text-4xl mb-3 opacity-30">✨</p>
+                          <p className="text-sm font-semibold">Selecciona un servicio primero</p>
+                          <p className="text-xs opacity-70 mt-1">Luego podrás agregar técnicas y decoraciones exclusivas.</p>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Selector */}
+                          <div className="flex gap-2 mb-2 shrink-0">
                         <Select
                           value={adicionalSeleccionado}
                           onValueChange={setAdicionalSeleccionado}
@@ -778,51 +849,168 @@ export default function ServicioEnCurso() {
                           </div>
                         </div>
                       )}
-
+                        </>
+                      )}
                     </CardContent>
                   </Card>
                 )}
 
-                {/* Legacy Add-Ons Extra (Durante isRunning) */}
-                {timerState.isRunning && (
-                  <Card className="shadow-sm border-muted/60 animate-fade-in shrink-0">
-                    <CardHeader className="p-4 pb-3 border-b bg-muted/5">
-                      <CardTitle className="flex items-center gap-2 text-sm font-bold">
-                        <Sparkles className="h-4 w-4 text-accent" />
-                        Add-Ons Rápidos
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-5">
-                      <div className="grid grid-cols-2 gap-3">
-                        {addOnOptions.map((addOn) => {
-                          const isSelected = addOns.includes(addOn.id);
-                          return (
-                            <div
-                              key={addOn.id}
-                              onClick={() => {
-                                setAddOns((prev) =>
-                                  isSelected ? prev.filter((id) => id !== addOn.id) : [...prev, addOn.id]
-                                );
-                              }}
-                              className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                                isSelected
-                                  ? "border-accent bg-accent/5 shadow-sm text-accent"
-                                  : "border-border hover:border-accent/40 bg-white"
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Checkbox checked={isSelected} className={isSelected ? "border-accent text-accent data-[state=checked]:bg-accent data-[state=checked]:text-white" : ""} />
-                                <span className="font-bold text-xs">{addOn.name}</span>
+                {/* Resumen del Servicio (Durante isRunning) */}
+                {timerState.sesionActiva && (
+                  <div className="flex flex-col gap-4 animate-fade-in h-full">
+                    {/* Card resumen del servicio */}
+                    <Card className="shadow-sm border-muted/60">
+                      <CardHeader className="p-4 pb-2 border-b bg-muted/5">
+                        <CardTitle className="text-sm flex items-center gap-2 font-bold">
+                          <Receipt className="h-4 w-4 text-primary" />
+                          Resumen del Servicio
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4 space-y-4">
+
+                        {/* Servicio base */}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-[10px] text-muted-foreground uppercase 
+                                          tracking-widest font-black">Servicio Base</p>
+                            <p className="font-bold text-sm">{timerState.sesionActiva.servicio_nombre}</p>
+                          </div>
+                          <p className="font-black text-lg">
+                            ${(service?.basePrice ?? 0).toLocaleString('es-MX')}
+                          </p>
+                        </div>
+
+                        {/* Adicionales — si los hay */}
+                        {adicionalesSeleccionados.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-[10px] text-muted-foreground uppercase 
+                                          tracking-widest font-black border-t pt-3">
+                              Adicionales
+                            </p>
+                            {adicionalesSeleccionados.map((a: any, i: number) => (
+                              <div key={i} 
+                                   className="flex items-center justify-between text-sm">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-[10px] flex items-center justify-center font-bold h-5 w-5 rounded-full border shadow-sm ${
+                                    a.tipo === 'tecnica' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-pink-50 text-pink-700 border-pink-200'
+                                  }`}>
+                                    {a.tipo === 'tecnica' ? '✦' : '💎'}
+                                  </span>
+                                  <span className="font-semibold text-xs">{a.nombre}</span>
+                                </div>
+                                <span className="font-black text-xs text-primary bg-primary/5 px-2 py-0.5 rounded border border-primary/10">
+                                  +${a.precio_base}
+                                </span>
                               </div>
-                              <span className="text-[10px] font-black opacity-80">+${addOn.price}</span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Separador */}
+                        <div className="border-t pt-3 space-y-2">
+
+                          {/* Tiempo estimado */}
+                          <div className="flex justify-between text-xs text-muted-foreground font-medium">
+                            <span className="flex items-center gap-1.5">
+                              <Clock className="h-3.5 w-3.5" /> Tiempo estimado
+                            </span>
+                            <span className="font-bold">{timerState.sesionActiva.tiempo_estimado_min} min</span>
+                          </div>
+
+                          {/* Tiempo transcurrido */}
+                          <div className="flex justify-between text-xs text-muted-foreground font-medium">
+                            <span className="flex items-center gap-1.5">
+                              <Timer className="h-3.5 w-3.5" /> Tiempo transcurrido
+                            </span>
+                            <span className="font-mono font-bold text-foreground">
+                              {Math.floor(timerState.elapsedSeconds / 60)} min {timerState.elapsedSeconds % 60} seg
+                            </span>
+                          </div>
+
+                          {/* Método de pago seleccionado */}
+                          {paymentMethod && (
+                            <div className="flex justify-between text-xs text-muted-foreground font-medium">
+                              <span>Método de pago</span>
+                              <span className="capitalize font-bold text-foreground flex items-center gap-1">
+                                {paymentMethod === 'efectivo'  ? '💵 Efectivo'  :
+                                 paymentMethod === 'tarjeta'   ? '💳 Tarjeta'   :
+                                 paymentMethod === 'transfer'  ? '📱 Transferencia' : paymentMethod}
+                              </span>
                             </div>
-                          );
-                        })}
+                          )}
+
+                        </div>
+
+                        {/* Total estimado — destacado */}
+                        <div className="flex items-center justify-between p-4 
+                                        bg-primary/5 rounded-xl border border-primary/20 shadow-sm mt-2">
+                          <div>
+                            <p className="text-[10px] font-black text-primary uppercase tracking-widest leading-tight">
+                              Total estimado
+                            </p>
+                            <p className="text-[10px] text-muted-foreground font-medium">
+                              Base + adicionales
+                            </p>
+                          </div>
+                          <p className="text-3xl font-black text-primary tracking-tighter tabular-nums">
+                            ${timerState.sesionActiva.precio_estimado?.toLocaleString('es-MX')}
+                          </p>
+                        </div>
+
+                        {/* Cliente asignado — si existe */}
+                        {timerState.sesionActiva.cliente_id && (
+                          <div className="flex items-center gap-3 p-3 
+                                          bg-muted/20 rounded-lg border mt-2">
+                            <div className="w-8 h-8 rounded-full bg-primary/10 
+                                            flex items-center justify-center 
+                                            text-sm font-black text-primary uppercase">
+                              {(timerState.sesionActiva as any).cliente_nombre?.[0] ?? '?'}
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">Cliente</p>
+                              <p className="text-sm font-bold">
+                                {(timerState.sesionActiva as any).cliente_nombre ?? 'Cliente asignado'}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                      </CardContent>
+                    </Card>
+
+                    {/* Indicador de progreso de tiempo */}
+                    <Card className="shadow-sm border-muted/60 p-4">
+                      <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5" /> Progreso de tiempo
+                      </p>
+                      <Progress 
+                        value={Math.min(
+                          ((timerState.elapsedSeconds / 60) / (timerState.sesionActiva.tiempo_estimado_min || 1)) * 100,
+                          100
+                        )} 
+                        className="h-2.5 mb-2.5"
+                      />
+                      <div className="flex justify-between text-[11px] font-bold text-muted-foreground">
+                        <span>{Math.floor(timerState.elapsedSeconds / 60)} min transcurridos</span>
+                        <span>{timerState.sesionActiva.tiempo_estimado_min} min estimados</span>
                       </div>
-                    </CardContent>
-                  </Card>
+                      
+                      {/* Warning si se pasa del tiempo estimado */}
+                      {Math.floor(timerState.elapsedSeconds / 60) > (timerState.sesionActiva.tiempo_estimado_min ?? 999) && (
+                        <div className="flex items-start gap-2 mt-3 text-destructive 
+                                        bg-destructive/10 border border-destructive/20 p-2.5 rounded-lg text-xs shadow-sm font-medium animate-pulse">
+                          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                          <span>
+                            Has superado el tiempo estimado original por{' '}
+                            <span className="font-black">{Math.floor(timerState.elapsedSeconds / 60) - timerState.sesionActiva.tiempo_estimado_min} min</span>.
+                          </span>
+                        </div>
+                      )}
+                    </Card>
+
+                  </div>
                 )}
-                
+
               </div>
             </div>
 
@@ -853,7 +1041,7 @@ export default function ServicioEnCurso() {
                   ) : (
                     <Square className="mr-3 h-6 w-6 fill-current opacity-80" />
                   )}
-                  {isSubmitting ? "GUARDANDO..." : "FINALIZAR SERVICIO"}
+                  {isSubmitting ? "FINALIZANDO..." : "FINALIZAR SERVICIO"}
                 </Button>
               )}
             </div>

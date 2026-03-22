@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,72 +15,156 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { toast } from "sonner";
 import {
-  Plus, Search, Pencil, Trash2, Eye, Users, MoreVertical, AlertCircle, UserPlus, RefreshCw,
+  Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle,
+} from "@/components/ui/drawer";
+import { toast } from "@/hooks/use-toast";
+import {
+  Plus, Search, Pencil, Trash2, Eye, Users, MoreVertical, AlertCircle, UserPlus, RefreshCw, Calendar, DollarSign, Clock, CheckCircle2, History
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ClientFormDialog, type ClientFormValues } from "@/components/clientes/ClientFormDialog";
+import { ClientFormDialog } from "@/components/clientes/ClientFormDialog";
+import { useAuth } from "@/auth/AuthProvider";
 
 // --- Types ---
-type ClientType = "Nuevo" | "Frecuente";
-
-interface Client {
-  id: string;
-  nombres: string;
-  apellidoPaterno: string;
-  apellidoMaterno: string;
-  tipo: ClientType;
-}
-
-// --- Dummy data ---
-// TODO: Reemplazar por fetch real → GET /api/clients_list
-// Campos esperados: nombres, apellidoPaterno, apellidoMaterno, tipo
-const initialClients: Client[] = [
-  { id: "1", nombres: "María Fernanda", apellidoPaterno: "García", apellidoMaterno: "López", tipo: "Frecuente" },
-  { id: "2", nombres: "Ana Sofía", apellidoPaterno: "Hernández", apellidoMaterno: "Ruiz", tipo: "Nuevo" },
-  { id: "3", nombres: "Valeria", apellidoPaterno: "Martínez", apellidoMaterno: "Cano", tipo: "Frecuente" },
-  { id: "4", nombres: "Lucía", apellidoPaterno: "Gómez", apellidoMaterno: "Santos", tipo: "Nuevo" },
-  { id: "5", nombres: "Daniela", apellidoPaterno: "Ramírez", apellidoMaterno: "Flores", tipo: "Frecuente" },
-  { id: "6", nombres: "Paola", apellidoPaterno: "Torres", apellidoMaterno: "Vega", tipo: "Nuevo" },
-  { id: "7", nombres: "Ximena", apellidoPaterno: "Navarro", apellidoMaterno: "Ortiz", tipo: "Frecuente" },
-  { id: "8", nombres: "Regina", apellidoPaterno: "Morales", apellidoMaterno: "Cruz", tipo: "Nuevo" },
-  { id: "9", nombres: "Camila", apellidoPaterno: "Ríos", apellidoMaterno: "Chávez", tipo: "Frecuente" },
-  { id: "10", nombres: "Sofía", apellidoPaterno: "Mendoza", apellidoMaterno: "Pérez", tipo: "Nuevo" },
-];
-
 type FilterType = "Todos" | "Nuevo" | "Frecuente";
 type ViewState = "loading" | "error" | "empty" | "data";
 
-const fullName = (c: Client) => `${c.nombres} ${c.apellidoPaterno} ${c.apellidoMaterno}`;
+interface Cliente {
+  id: string;
+  nombre: string;
+  apellido_paterno: string;
+  apellido_materno: string | null;
+  correo: string | null;
+  telefono: string;
+  tipo: "nuevo" | "frecuente";
+}
+
+interface SesionHistorial {
+  id: string;
+  fecha: string;
+  servicio_nombre: string;
+  duracion_minutos: number;
+  precio_total: number;
+  adicionales: string[];
+}
+
+interface ClienteDetalle extends Cliente {
+  sesiones_total: number;
+  gasto_total: number;
+  ultima_visita: string | null;
+  historial_sesiones: SesionHistorial[];
+}
+
+// Simple debounce
+function debounce<T extends (...args: any[]) => void>(func: T, delay: number) {
+  let timer: ReturnType<typeof setTimeout>;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => func(...args), delay);
+  };
+}
+
+const fullName = (c: Cliente) => `${c.nombre} ${c.apellido_paterno} ${c.apellido_materno || ""}`.trim();
 
 export default function Clientes() {
-  const [clients, setClients] = useState<Client[]>(initialClients);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const API_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'https://us-central1-entaltek-manicura.cloudfunctions.net/api';
+
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterType>("Todos");
-  const [viewState] = useState<ViewState>("data"); // toggle for demo
+  const [viewState, setViewState] = useState<ViewState>("loading");
+  
   const [addOpen, setAddOpen] = useState(false);
   const [editClientId, setEditClientId] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Cliente | null>(null);
 
-  const filtered = clients.filter((c) => {
-    const matchesSearch =
-      search === "" ||
-      fullName(c).toLowerCase().includes(search.toLowerCase());
-    const matchesFilter = filter === "Todos" || c.tipo === filter;
-    return matchesSearch && matchesFilter;
-  });
+  // Fetch logic
+  const fetchClientes = useCallback(async (filtroTipo?: 'nuevo' | 'frecuente', searchTerm?: string) => {
+    if (!user) return;
+    setViewState("loading");
+    try {
+      const token = await user.getIdToken();
+      const params = new URLSearchParams();
+      if (filtroTipo) params.set('tipo', filtroTipo);
+      if (searchTerm) params.set('search', searchTerm);
+      
+      const res = await fetch(`${API_URL}/clientes?${params}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      
+      if (data.status === 'success') {
+        const list = data.data ?? [];
+        setClientes(list);
+        setTotal(data.meta?.total ?? list.length);
+        setViewState(list.length > 0 || searchTerm || filtroTipo ? "data" : "empty");
+      } else {
+        setViewState("error");
+        toast({ title: "Error", description: data.message, variant: "destructive" });
+      }
+    } catch (error: any) {
+      console.error(error);
+      setViewState("error");
+      toast({ title: "Error de conexión", description: "No se pudieron cargar los clientes", variant: "destructive" });
+    }
+  }, [user, API_URL]);
 
-  const handleEdit = (c: Client) => {
+  useEffect(() => {
+    const apiFiltro = filter === "Todos" ? undefined : filter.toLowerCase() as "nuevo" | "frecuente";
+    fetchClientes(apiFiltro, search);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, user]); // Run when filter or user changes
+
+  // Debounced search trigger
+  const debouncedFetchRef = useRef(
+    debounce((filtroActivo: FilterType, texto: string, fetchFn: typeof fetchClientes) => {
+      const apiFiltro = filtroActivo === "Todos" ? undefined : filtroActivo.toLowerCase() as "nuevo" | "frecuente";
+      fetchFn(apiFiltro, texto);
+    }, 400)
+  );
+
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    debouncedFetchRef.current(filter, val, fetchClientes);
+  };
+
+  const handleEdit = (c: Cliente) => {
     setEditClientId(c.id);
   };
-  const handleView = (c: Client) => toast.info(`Ver detalle: ${fullName(c)} (pendiente)`);
-  const confirmDelete = () => {
-    if (!deleteTarget) return;
-    setClients((prev) => prev.filter((c) => c.id !== deleteTarget.id));
-    toast.success(`Cliente ${fullName(deleteTarget)} eliminado`);
-    setDeleteTarget(null);
+
+  const confirmDelete = async () => {
+    if (!deleteTarget || !user) return;
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_URL}/clientes/${deleteTarget.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      const data = await res.json();
+
+      if (data.status === 'success') {
+        toast({ title: "Cliente eliminado" });
+        fetchClientes(filter === "Todos" ? undefined : filter.toLowerCase() as "nuevo" | "frecuente", search);
+      } else {
+        toast({ title: "No se puede eliminar", description: data.message, variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Error", description: "No se pudo eliminar el cliente", variant: "destructive" });
+    } finally {
+      setDeleteTarget(null);
+    }
   };
+
+  const handleView = (c: Cliente) => {
+    navigate(`/clientes/${c.id}`);
+  };
+
+  const formatCurrency = (val: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(val);
 
   // --- Sub-renders ---
   const renderLoading = () => (
@@ -105,7 +190,7 @@ export default function Clientes() {
         <p className="font-semibold text-foreground">No se pudo cargar clientes</p>
         <p className="text-sm text-muted-foreground mt-1">Verifica tu conexión e intenta de nuevo</p>
       </div>
-      <Button variant="outline" size="sm" onClick={() => toast.info("Reintentar (pendiente)")}>
+      <Button variant="outline" size="sm" onClick={() => fetchClientes(filter === "Todos" ? undefined : filter.toLowerCase() as "nuevo" | "frecuente", search)}>
         <RefreshCw className="h-4 w-4 mr-2" /> Reintentar
       </Button>
     </div>
@@ -126,21 +211,20 @@ export default function Clientes() {
     </div>
   );
 
-  const typeBadge = (tipo: ClientType) => (
+  const typeBadge = (tipo: string) => (
     <Badge
-      variant={tipo === "Frecuente" ? "default" : "secondary"}
-      className={cn(
-        "text-xs",
-        tipo === "Frecuente"
-          ? "bg-primary/15 text-primary border-primary/30"
-          : "bg-accent text-accent-foreground"
-      )}
+      className={
+        tipo === 'frecuente'
+          ? 'bg-pink-100 text-pink-700 border-pink-200 pointer-events-none'
+          : 'bg-gray-100 text-gray-600 border-gray-200 pointer-events-none'
+      }
+      variant="outline"
     >
-      {tipo}
+      {tipo === 'frecuente' ? 'Frecuente' : 'Nuevo'}
     </Badge>
   );
 
-  const actionButtons = (c: Client) => (
+  const actionButtons = (c: Cliente) => (
     <div className="flex items-center gap-1">
       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleView(c)} title="Ver">
         <Eye className="h-4 w-4" />
@@ -154,7 +238,7 @@ export default function Clientes() {
     </div>
   );
 
-  const mobileActions = (c: Client) => (
+  const mobileActions = (c: Cliente) => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -177,16 +261,18 @@ export default function Clientes() {
             <TableHead>Nombre(s)</TableHead>
             <TableHead>Apellido Paterno</TableHead>
             <TableHead>Apellido Materno</TableHead>
+            <TableHead>Teléfono</TableHead>
             <TableHead>Tipo</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filtered.map((c) => (
+          {clientes.map((c) => (
             <TableRow key={c.id} className="cursor-pointer" onClick={() => handleView(c)}>
-              <TableCell className="font-medium">{c.nombres}</TableCell>
-              <TableCell>{c.apellidoPaterno}</TableCell>
-              <TableCell>{c.apellidoMaterno}</TableCell>
+              <TableCell className="font-medium">{c.nombre}</TableCell>
+              <TableCell>{c.apellido_paterno}</TableCell>
+              <TableCell>{c.apellido_materno || <span className="text-muted-foreground italic">-</span>}</TableCell>
+              <TableCell>{c.telefono}</TableCell>
               <TableCell>{typeBadge(c.tipo)}</TableCell>
               <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                 {actionButtons(c)}
@@ -200,17 +286,20 @@ export default function Clientes() {
 
   const renderMobileCards = () => (
     <div className="md:hidden space-y-3 p-4">
-      {filtered.map((c) => (
+      {clientes.map((c) => (
         <Card key={c.id} className="overflow-hidden" onClick={() => handleView(c)}>
           <CardContent className="p-4">
             <div className="flex items-start justify-between">
               <div className="space-y-1">
-                <p className="font-semibold text-foreground">{c.nombres}</p>
-                <p className="text-sm text-muted-foreground">{c.apellidoPaterno} {c.apellidoMaterno}</p>
+                <p className="font-semibold text-foreground">{c.nombre}</p>
+                <p className="text-sm text-muted-foreground">{c.apellido_paterno} {c.apellido_materno}</p>
+                <p className="text-xs text-muted-foreground">{c.telefono}</p>
               </div>
-              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <div className="flex flex-col items-end gap-2" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-1">
+                  {mobileActions(c)}
+                </div>
                 {typeBadge(c.tipo)}
-                {mobileActions(c)}
               </div>
             </div>
           </CardContent>
@@ -220,10 +309,10 @@ export default function Clientes() {
   );
 
   const content = () => {
-    if (viewState === "loading") return renderLoading();
-    if (viewState === "error") return renderError();
-    if (viewState === "data" && filtered.length === 0 && search === "" && filter === "Todos") return renderEmpty();
-    if (viewState === "data" && filtered.length === 0) {
+    if (viewState === "loading" && clientes.length === 0) return renderLoading();
+    if (viewState === "error" && clientes.length === 0) return renderError();
+    if (viewState === "empty" && search === "" && filter === "Todos") return renderEmpty();
+    if (clientes.length === 0) {
       return (
         <div className="text-center py-12 text-muted-foreground">
           <p className="font-medium">Sin resultados</p>
@@ -232,10 +321,10 @@ export default function Clientes() {
       );
     }
     return (
-      <>
+      <div className={viewState === "loading" ? "opacity-50 pointer-events-none" : ""}>
         {renderDesktopTable()}
         {renderMobileCards()}
-      </>
+      </div>
     );
   };
 
@@ -258,17 +347,17 @@ export default function Clientes() {
 
         {/* Filters */}
         <Card className="shadow-card animate-fade-in">
-        <div className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="p-4 border-b border-border flex flex-col xl:flex-row xl:items-center gap-4">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar cliente..."
+              placeholder="Buscar por nombre..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-9"
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center flex-wrap gap-2">
             {(["Todos", "Nuevo", "Frecuente"] as FilterType[]).map((f) => (
               <Badge
                 key={f}
@@ -283,48 +372,30 @@ export default function Clientes() {
               </Badge>
             ))}
           </div>
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
-            {filtered.length} cliente{filtered.length !== 1 ? "s" : ""}
+          <span className="text-xs text-muted-foreground whitespace-nowrap ml-auto">
+            {total} cliente{total !== 1 ? "s" : ""}
           </span>
         </div>
 
-        <CardContent className="p-0">
+        <CardContent className="p-0 relative min-h-[400px]">
           {content()}
         </CardContent>
       </Card>
 
-      {/* Add client form */}
+      {/* Add & Edit form dialog */}
       <ClientFormDialog
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        onSave={(data: ClientFormValues) => {
-          const newClient: Client = {
-            id: String(Date.now()),
-            nombres: data.nombres,
-            apellidoPaterno: data.apellidoPaterno,
-            apellidoMaterno: data.apellidoMaterno || "",
-            tipo: "Nuevo",
-          };
-          setClients((prev) => [newClient, ...prev]);
-          setAddOpen(false);
+        open={addOpen || !!editClientId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAddOpen(false);
+            setEditClientId(null);
+          }
         }}
-      />
-
-      {/* Edit client form */}
-      <ClientFormDialog
-        open={!!editClientId}
-        onOpenChange={(open) => { if (!open) setEditClientId(null); }}
         editClientId={editClientId}
-        onSave={(data: ClientFormValues) => {
-          // TODO: Replace with real Firebase updateDoc
-          setClients((prev) =>
-            prev.map((c) =>
-              c.id === editClientId
-                ? { ...c, nombres: data.nombres, apellidoPaterno: data.apellidoPaterno, apellidoMaterno: data.apellidoMaterno || "" }
-                : c
-            )
-          );
+        onSuccess={() => {
+          setAddOpen(false);
           setEditClientId(null);
+          fetchClientes(filter === "Todos" ? undefined : filter.toLowerCase() as "nuevo" | "frecuente", search);
         }}
       />
 
@@ -332,9 +403,12 @@ export default function Clientes() {
       <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirmar eliminación</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" /> Confirmar eliminación
+            </DialogTitle>
             <DialogDescription>
-              ¿Seguro que deseas eliminar a <span className="font-semibold text-foreground">{deleteTarget ? fullName(deleteTarget) : ""}</span>?
+              ¿Seguro que deseas eliminar a <span className="font-semibold text-foreground">{deleteTarget ? fullName(deleteTarget) : ""}</span>?<br/>
+              Esta acción no se puede deshacer.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
@@ -343,6 +417,9 @@ export default function Clientes() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+
+
       </div>
     </MainLayout>
   );

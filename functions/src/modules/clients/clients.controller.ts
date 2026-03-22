@@ -2,16 +2,60 @@ import { Request, Response } from "express";
 import { ClientsService } from "./clients.service";
 import { createClientSchema, updateClientSchema } from "./clients.schema";
 
+function mapToEnglish(raw: any) {
+  const result: any = {};
+  if (raw.nombre !== undefined) result.firstName = raw.nombre;
+  if (raw.apellido_paterno !== undefined) result.paternalSurname = raw.apellido_paterno;
+  if (raw.apellido_materno !== undefined) result.maternalSurname = raw.apellido_materno;
+  if (raw.telefono !== undefined) result.phone = raw.telefono;
+  if (raw.correo !== undefined) result.email = raw.correo;
+  if (raw.tipo !== undefined) result.type = raw.tipo;
+  else result.type = "nuevo"; // Default to nuevo since we dropped it
+  return result;
+}
+
+function mapCliente(raw: any) {
+  return {
+    id:               raw.id,
+    nombre:           raw.firstName   ?? raw.name        ?? raw.nombre,
+    apellido_paterno: raw.paternalSurname ?? raw.lastName    ?? raw.apellido_paterno,
+    apellido_materno: raw.maternalSurname ?? raw.secondLastName ?? raw.apellido_materno ?? null,
+    telefono:         raw.phone       ?? raw.telefono,
+    correo:           raw.email       ?? raw.correo ?? null,
+    tipo:             raw.type        ?? raw.tipo ?? 'nuevo',
+    sesiones_total:   raw.appointmentsCount ?? raw.servicesCount ?? raw.sesiones_total ?? 0,
+    gasto_total:      raw.gasto_total    ?? 0,
+    ultima_visita:    raw.updatedAt ?? raw.ultima_visita  ?? null,
+    // Add dummy history for now if it doesn't exist, to prevent breaking GET /:id details drawer
+    historial_sesiones: raw.historial ?? [],
+  };
+}
+
 export const ClientsController = {
-  async getAll(_req: Request, res: Response) {
+  async getAll(req: Request, res: Response) {
     try {
       const clients = await ClientsService.getAll();
+      
+      const { tipo, search } = req.query as Record<string, string>;
+      let filtered = clients.map(mapCliente);
+
+      if (tipo) {
+        filtered = filtered.filter((c: any) => c.tipo === tipo);
+      }
+      if (search) {
+        const q = search.toLowerCase();
+        filtered = filtered.filter((c: any) => 
+          c.nombre.toLowerCase().includes(q) || 
+          c.apellido_paterno.toLowerCase().includes(q) || 
+          (c.apellido_materno ?? "").toLowerCase().includes(q)
+        );
+      }
 
       return res.status(200).json({
         status: "success",
         message: "Clientes obtenidos correctamente",
-        data: clients,
-        meta: null,
+        data: filtered,
+        meta: { total: filtered.length, page: 1, per_page: 20 },
       });
     } catch (error: any) {
       return res.status(500).json({
@@ -30,7 +74,7 @@ export const ClientsController = {
       return res.status(200).json({
         status: "success",
         message: "Cliente obtenido correctamente",
-        data: client,
+        data: mapCliente(client),
         meta: null,
       });
     } catch (error: any) {
@@ -46,7 +90,8 @@ export const ClientsController = {
   },
 
   async create(req: Request, res: Response) {
-    const validation = createClientSchema.safeParse(req.body);
+    const englishPayload = mapToEnglish(req.body);
+    const validation = createClientSchema.safeParse(englishPayload);
 
     if (!validation.success) {
       return res.status(422).json({
@@ -63,7 +108,7 @@ export const ClientsController = {
       return res.status(201).json({
         status: "success",
         message: "Cliente creado correctamente",
-        data: client,
+        data: mapCliente(client),
         meta: null,
       });
     } catch (error: any) {
@@ -79,7 +124,8 @@ export const ClientsController = {
   },
 
   async update(req: Request, res: Response) {
-    const validation = updateClientSchema.safeParse(req.body);
+    const englishPayload = mapToEnglish(req.body);
+    const validation = updateClientSchema.safeParse(englishPayload);
 
     if (!validation.success) {
       return res.status(422).json({
@@ -96,7 +142,7 @@ export const ClientsController = {
       return res.status(200).json({
         status: "success",
         message: "Cliente actualizado correctamente",
-        data: client,
+        data: mapCliente(client),
         meta: null,
       });
     } catch (error: any) {

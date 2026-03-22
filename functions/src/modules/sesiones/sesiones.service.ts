@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { SesionesRepository } from './sesiones.repository';
-import { IniciarSesionPayload, SesionAdicional } from './sesiones.model';
+import { IniciarSesionPayload, SesionAdicional, FinalizarSesionPayload } from './sesiones.model';
 
 export const SesionesService = {
   async iniciarSesion(payload: IniciarSesionPayload) {
@@ -55,10 +55,35 @@ export const SesionesService = {
       inicio: Timestamp.now(),
       fin: null,
       estado: 'en_curso' as const,
+      metodo_pago: null,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     };
 
     return await SesionesRepository.createSesion(sessionData);
+  },
+
+  async finalizarSesion(id: string, payload: FinalizarSesionPayload) {
+    const sesion = await SesionesRepository.getSesionById(id);
+    if (!sesion) {
+      throw new Error("Sesión no encontrada");
+    }
+    if (sesion.estado === 'finalizado') {
+      throw new Error("La sesión ya se encuentra finalizada");
+    }
+
+    const updateData = {
+      estado: 'finalizado' as const,
+      precio_cobrado: payload.precio_cobrado,
+      metodo_pago: payload.metodo_pago,
+      duracion_real_min: payload.duracion_real_min,
+      fin: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    };
+
+    await SesionesRepository.finalizarSesion(id, updateData);
+    
+    // Devolver la sesión actualizada
+    return await SesionesRepository.getSesionById(id);
   }
 };

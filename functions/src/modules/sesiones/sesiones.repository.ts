@@ -29,5 +29,15 @@ export const SesionesRepository = {
     };
     await docRef.set(sesion);
     return sesion;
+  },
+
+  async getSesionById(id: string) {
+    const doc = await sesionesCol.doc(id).get();
+    if (!doc.exists) return null;
+    return { id: doc.id, ...doc.data() } as any;
+  },
+
+  async finalizarSesion(id: string, updateData: Partial<Sesion>) {
+    await sesionesCol.doc(id).update(updateData);
   }
 };

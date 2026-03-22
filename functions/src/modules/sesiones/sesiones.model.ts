@@ -24,6 +24,7 @@ export interface Sesion {
   duracion_real_min: number | null;
   inicio: Timestamp;
   fin: Timestamp | null;
+  metodo_pago: 'efectivo' | 'tarjeta' | 'transfer' | null;
   estado: 'en_curso' | 'finalizado';
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -34,4 +35,10 @@ export interface IniciarSesionPayload {
   trabajador_id?: string;
   cliente_id?: string | null;
   adicionales_ids?: string[];
+}
+
+export interface FinalizarSesionPayload {
+  precio_cobrado: number;
+  metodo_pago: 'efectivo' | 'tarjeta' | 'transfer';
+  duracion_real_min: number;
 }

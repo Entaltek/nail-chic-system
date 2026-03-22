@@ -110,4 +110,73 @@ export const ClientsRepository = {
     const doc = snap.docs[0];
     return this.mapClient(doc.id, doc.data());
   },
+
+  async getHistorial(clienteId: string) {
+    const sesionesSnap = await db.collection("sesiones")
+      .where("cliente_id", "==", clienteId)
+      .where("estado", "==", "finalizado")
+      .orderBy("fin", "desc")
+      .get();
+
+    return sesionesSnap.docs.map((d: any) => {
+      const s = d.data();
+      return {
+        servicio_nombre:    s.servicio_nombre    ?? "Servicio",
+        duracion_real_min:  s.duracion_real_min  ?? null,
+        duracion_estimada:  s.tiempo_estimado_min ?? null,
+        precio_cobrado:     Number(s.precio_cobrado)  || 0,
+        precio_estimado:    Number(s.precio_estimado) || 0,
+        precio_adicionales: Number(s.precio_adicionales) || 0,
+        metodo_pago:        s.metodo_pago        ?? null,
+        trabajador_nombre:  s.trabajador_nombre  ?? null,
+        adicionales: (s.adicionales ?? [])
+          .map((a: any) => ({ 
+            nombre: a.nombre ?? a.name ?? a,
+            tipo:   a.tipo   ?? "tecnica",
+            precio: a.precio_base ?? 0,
+          })),
+        fecha: s.fin?.toDate
+          ? s.fin.toDate().toISOString().split("T")[0]
+          : null,
+      };
+    });
+  },
+
+  async calcularTipo(clienteId: string) {
+    const snap = await db.collection("sesiones")
+      .where("cliente_id", "==", clienteId)
+      .where("estado", "==", "finalizado")
+      .get();
+
+    const registros = snap.docs.map((d: any) => d.data());
+    const sesiones_total = registros.length;
+    const gasto_total = registros.reduce(
+      (s: number, r: any) => s + (Number(r.precio_cobrado) || 0), 0
+    );
+
+    // Frecuente = 3+ visitas este mes
+    const ahora = new Date();
+    const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+    const esteMes = registros.filter((r: any) => {
+      if (!r.fin) return false;
+      const fecha = r.fin.toDate ? r.fin.toDate() : new Date(r.fin);
+      return fecha >= inicioMes;
+    });
+    const tipo = esteMes.length >= 3 ? "frecuente" : "nuevo";
+
+    // Última visita
+    const ordenados = registros
+      .filter((r: any) => r.fin)
+      .sort((a: any, b: any) => {
+        const fa = a.fin.toDate ? a.fin.toDate() : new Date(a.fin);
+        const fb = b.fin.toDate ? b.fin.toDate() : new Date(b.fin);
+        return fb.getTime() - fa.getTime();
+      });
+
+    const ultima_visita = ordenados.length > 0
+      ? ordenados[0].fin.toDate().toISOString().split("T")[0]
+      : null;
+
+    return { tipo, sesiones_total, gasto_total, ultima_visita };
+  },
 };

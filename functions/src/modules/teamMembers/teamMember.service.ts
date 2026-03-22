@@ -23,6 +23,19 @@ export const teamMemberService = {
       throw new Error("Nombre y rol son requeridos");
     }
 
+    if (data.commissionPercentage !== undefined && data.commissionPercentage !== null) {
+      if (data.commissionPercentage < 0 || data.commissionPercentage > 100) {
+        throw new Error("La comisión debe estar entre 0 y 100");
+      }
+    }
+
+    if (data.role === "owner") {
+      const allMembers = await TeamMemberRepository.findByOwnerId(ownerId);
+      if (allMembers.some((m) => m.role === "owner" && m.isActive)) {
+        throw new Error("Ya existe una dueña en el equipo");
+      }
+    }
+
     const newMember: Omit<TeamMember, "id"> = {
       ownerId,
       name: data.name,
